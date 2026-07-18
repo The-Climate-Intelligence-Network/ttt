@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, RefreshCw, Trophy, BarChart3, Users } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trophy, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
@@ -423,9 +423,6 @@ export default function AdminDashboard() {
                     </span>
                     <div>
                       <span style={{ fontSize: '1.25rem', fontWeight: 600, display: 'block' }}>{team.name}</span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--color-jade)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                        <Users size={12} /> Registered Team
-                      </span>
                     </div>
                   </div>
                   

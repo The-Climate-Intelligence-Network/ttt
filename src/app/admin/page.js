@@ -353,8 +353,13 @@ export default function AdminPage() {
             </div>
 
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input type="checkbox" checked={isMultiLocation} onChange={e => setIsMultiLocation(e.target.checked)} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', justifyContent: 'flex-start' }}>
+                <input 
+                  type="checkbox" 
+                  checked={isMultiLocation} 
+                  onChange={e => setIsMultiLocation(e.target.checked)} 
+                  style={{ width: 'auto', cursor: 'pointer', flexShrink: 0 }}
+                />
                 <span style={{ fontWeight: 'bold', color: 'var(--color-forest)' }}>Is Multi-Location Event?</span>
               </label>
             </div>
@@ -368,9 +373,17 @@ export default function AdminPage() {
                       type="text" 
                       value={loc} 
                       onChange={e => {
-                        const newLocs = [...multiLocations];
-                        newLocs[idx] = e.target.value;
-                        setMultiLocations(newLocs);
+                        const val = e.target.value;
+                        if (val.includes(',') || val.includes('\n')) {
+                          const parsed = val.split(/[,\n]+/).map(item => item.trim()).filter(Boolean);
+                          const newLocs = [...multiLocations];
+                          newLocs.splice(idx, 1, ...parsed);
+                          setMultiLocations(newLocs);
+                        } else {
+                          const newLocs = [...multiLocations];
+                          newLocs[idx] = val;
+                          setMultiLocations(newLocs);
+                        }
                       }} 
                       placeholder={`Location ${idx + 1}`} 
                       style={{ flex: 1 }}
@@ -384,9 +397,60 @@ export default function AdminPage() {
                     </button>
                   </div>
                 ))}
-                <button type="button" onClick={() => setMultiLocations([...multiLocations, ''])} style={{ background: 'transparent', border: '1px dashed var(--color-jade)', color: 'var(--color-forest)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  + Add Another Location
-                </button>
+                
+                <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--spacing-md)' }}>
+                  <button type="button" onClick={() => setMultiLocations([...multiLocations, ''])} style={{ background: 'transparent', border: '1px dashed var(--color-jade)', color: 'var(--color-forest)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    + Add Another Location
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px dashed var(--color-jade)' }}>
+                  <label style={{ display: 'block', marginBottom: 'var(--spacing-xs)', fontSize: '0.85rem', color: 'var(--color-forest)', fontWeight: 'bold' }}>
+                    Or Paste/Type List (comma or newline separated)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                    <textarea 
+                      id="bulk-locations-input"
+                      placeholder="e.g. Location A, Location B, Location C"
+                      rows={2}
+                      style={{ 
+                        flex: 1, 
+                        padding: '8px', 
+                        borderRadius: 'var(--border-radius-sm)', 
+                        border: '1px solid var(--color-jade)', 
+                        fontSize: '0.9rem', 
+                        fontFamily: 'inherit', 
+                        resize: 'none' 
+                      }}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const textarea = document.getElementById('bulk-locations-input');
+                        if (textarea) {
+                          const val = textarea.value;
+                          const parsed = val.split(/[,\n]+/).map(item => item.trim()).filter(Boolean);
+                          if (parsed.length > 0) {
+                            const existing = multiLocations.filter(l => l.trim() !== '');
+                            setMultiLocations([...existing, ...parsed]);
+                            textarea.value = '';
+                          }
+                        }
+                      }}
+                      style={{ 
+                        background: 'var(--color-forest)', 
+                        color: 'white', 
+                        fontSize: '0.85rem', 
+                        padding: '8px 12px', 
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Bulk Add
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div style={{ marginBottom: 'var(--spacing-md)' }}>

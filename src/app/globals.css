@@ -124,6 +124,11 @@ input {
   transition: border-color 0.2s ease;
 }
 
+input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+}
+
 input:focus {
   outline: none;
   border-color: var(--color-teal);
