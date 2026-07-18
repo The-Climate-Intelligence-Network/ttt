@@ -7,6 +7,8 @@ import Link from 'next/link';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState([]);
+  const [separatedStats, setSeparatedStats] = useState([]);
+  const [brandViewMode, setBrandViewMode] = useState('parent'); // 'parent' or 'separated'
   const [teamStats, setTeamStats] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [events, setEvents] = useState([]);
@@ -73,6 +75,7 @@ export default function AdminDashboard() {
       if (itemsData) {
         let total = 0;
         const brandCounts = {};
+        const separatedBrandCounts = {};
         
         // Initialize team statistics map with all teams from this event
         const teamMap = {};
@@ -106,6 +109,7 @@ export default function AdminDashboard() {
           let targetBrandId = brandData.parent_id || brandData.id;
           let targetBrandName = allBrands?.find(b => b.id === targetBrandId)?.name || brandData.name;
           
+          // Parent-level aggregation
           if (!brandCounts[targetBrandName]) {
             brandCounts[targetBrandName] = { total: 0, subBrands: {} };
           }
@@ -114,6 +118,10 @@ export default function AdminDashboard() {
           if (brandData.parent_id) {
             brandCounts[targetBrandName].subBrands[brandData.name] = (brandCounts[targetBrandName].subBrands[brandData.name] || 0) + item.count;
           }
+
+          // Separated level aggregation
+          const rawBrandName = brandData.name || 'Unknown';
+          separatedBrandCounts[rawBrandName] = (separatedBrandCounts[rawBrandName] || 0) + item.count;
           
           // Accumulate team leaderboards
           if (teamId) {
@@ -138,6 +146,10 @@ export default function AdminDashboard() {
           .map(([name, data]) => ({ name, count: data.total, subBrands: data.subBrands }))
           .sort((a, b) => b.count - a.count);
           
+        const sortedSeparatedStats = Object.entries(separatedBrandCounts)
+          .map(([name, count]) => ({ name, count, subBrands: {} }))
+          .sort((a, b) => b.count - a.count);
+          
         // Format and sort Team Leaderboard (descending of unique brands found, secondary total items)
         const sortedTeamStats = Object.values(teamMap)
           .map(t => ({
@@ -157,6 +169,7 @@ export default function AdminDashboard() {
           });
           
         setStats(sortedStats);
+        setSeparatedStats(sortedSeparatedStats);
         setTeamStats(sortedTeamStats);
         setTotalItems(total);
       }
@@ -175,7 +188,8 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [selectedEventId]);
 
-  const maxBrandCount = stats.length > 0 ? stats[0].count : 1;
+  const activeStats = brandViewMode === 'parent' ? stats : separatedStats;
+  const currentMaxCount = activeStats.length > 0 ? activeStats[0].count : 1;
   const maxTeamBrands = teamStats.length > 0 ? Math.max(...teamStats.map(t => t.brandsCount)) : 1;
 
   return (
@@ -221,6 +235,7 @@ export default function AdminDashboard() {
           gap: var(--spacing-sm);
           position: relative;
           overflow: hidden;
+          flex-shrink: 0;
           transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease;
           cursor: default;
         }
@@ -232,6 +247,31 @@ export default function AdminDashboard() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        
+        /* Custom Scrollbar Styles */
+        .scrollable-list {
+          overflow-y: auto;
+          max-height: 600px;
+          padding-right: 8px;
+        }
+        
+        .scrollable-list::-webkit-scrollbar {
+          width: 8px;
+        }
+        
+        .scrollable-list::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 4px;
+        }
+        
+        .scrollable-list::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+        
+        .scrollable-list::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
         }
       `}} />
 
@@ -343,13 +383,38 @@ export default function AdminDashboard() {
         
         {/* Left Panel: Brands tally in descending order */}
         <section className="panel-container">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 'var(--spacing-sm)' }}>
-            <BarChart3 size={24} style={{ color: 'var(--color-teal)' }} />
-            <h2 style={{ fontSize: '1.5rem', color: 'white', margin: 0 }}>Brand Tally</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 'var(--spacing-sm)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+              <BarChart3 size={24} style={{ color: 'var(--color-teal)' }} />
+              <h2 style={{ fontSize: '1.5rem', color: 'white', margin: 0 }}>Brand Tally</h2>
+            </div>
+            
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 'var(--border-radius-sm)', padding: '2px' }}>
+              <button 
+                onClick={() => setBrandViewMode('parent')}
+                style={{ 
+                  background: brandViewMode === 'parent' ? 'var(--color-teal)' : 'transparent',
+                  color: brandViewMode === 'parent' ? 'var(--color-forest)' : 'var(--color-jade)',
+                  border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s ease'
+                }}
+              >
+                Grouped
+              </button>
+              <button 
+                onClick={() => setBrandViewMode('separated')}
+                style={{ 
+                  background: brandViewMode === 'separated' ? 'var(--color-teal)' : 'transparent',
+                  color: brandViewMode === 'separated' ? 'var(--color-forest)' : 'var(--color-jade)',
+                  border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s ease'
+                }}
+              >
+                All Brands
+              </button>
+            </div>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', overflowY: 'auto', maxHeight: '600px', paddingRight: '4px' }}>
-            {stats.map((stat, i) => (
+          <div className="scrollable-list" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+            {activeStats.map((stat, i) => (
               <div key={stat.name} className="leaderboard-card">
                 {/* Background percentage progress bar */}
                 <div style={{
@@ -357,7 +422,7 @@ export default function AdminDashboard() {
                   bottom: 0,
                   left: 0,
                   height: '4px',
-                  width: `${(stat.count / maxBrandCount) * 100}%`,
+                  width: `${(stat.count / currentMaxCount) * 100}%`,
                   background: 'linear-gradient(to right, var(--color-teal), var(--color-sour-apple))',
                   borderRadius: '0 2px 2px 0',
                   opacity: 0.8,
@@ -406,7 +471,7 @@ export default function AdminDashboard() {
               </div>
             ))}
             
-            {!loading && stats.length === 0 && (
+            {!loading && activeStats.length === 0 && (
               <div style={{ 
                 padding: 'var(--spacing-xl)',
                 textAlign: 'center',
@@ -427,7 +492,7 @@ export default function AdminDashboard() {
             <h2 style={{ fontSize: '1.5rem', color: 'white', margin: 0 }}>Team Leaderboard</h2>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', overflowY: 'auto', maxHeight: '600px', paddingRight: '4px' }}>
+          <div className="scrollable-list" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             {teamStats.map((team, i) => (
               <div key={team.id} className="leaderboard-card">
                 {/* Background percentage progress bar based on brands count */}
