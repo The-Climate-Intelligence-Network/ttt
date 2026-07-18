@@ -11,6 +11,7 @@ export default function AdminPage() {
   const [editingBrand, setEditingBrand] = useState(null);
   const [editBrandName, setEditBrandName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
 
   const fetchData = async () => {
     try {
@@ -52,26 +53,36 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleDeleteTeam = async (teamId) => {
-    console.log("Delete button clicked for teamId:", teamId);
-    if (!teamId) {
-      alert("Error: Team ID is missing.");
-      return;
-    }
-    if (window.confirm("Are you sure you want to delete this team? This will delete all their audits and data.")) {
-      try {
-        const { data, error } = await supabase.from('teams').delete().eq('id', teamId).select();
-        if (error) {
-          alert("Error deleting team: " + error.message);
-        } else if (!data || data.length === 0) {
-          alert("Error: Team not found or you don't have permission to delete it.");
-        } else {
-          fetchData();
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Unexpected error: " + err.message);
+  const handleDeleteTeam = (teamId) => {
+    if (!teamId) return;
+    setConfirmDialog({ isOpen: true, type: 'team', id: teamId });
+  };
+
+  const handleDeleteBrand = (brandId) => {
+    if (!brandId) return;
+    setConfirmDialog({ isOpen: true, type: 'brand', id: brandId });
+  };
+
+  const executeDelete = async () => {
+    const { type, id } = confirmDialog;
+    if (!type || !id) return;
+
+    try {
+      if (type === 'team') {
+        const { data, error } = await supabase.from('teams').delete().eq('id', id).select();
+        if (error) alert("Error deleting team: " + error.message);
+        else if (!data || data.length === 0) alert("Error: Team not found or no permission.");
+        else fetchData();
+      } else if (type === 'brand') {
+        const { error } = await supabase.from('brands').delete().eq('id', id);
+        if (error) alert("Error deleting brand: " + error.message);
+        else fetchData();
       }
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error: " + err.message);
+    } finally {
+      setConfirmDialog({ isOpen: false, type: null, id: null });
     }
   };
 
@@ -93,22 +104,6 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const handleDeleteBrand = async (brandId) => {
-    if (window.confirm("Are you sure you want to delete this brand?")) {
-      try {
-        const { error } = await supabase.from('brands').delete().eq('id', brandId);
-        if (error) {
-          alert("Error deleting brand: " + error.message);
-        } else {
-          fetchData();
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Unexpected error: " + err.message);
-      }
     }
   };
 
@@ -240,6 +235,28 @@ export default function AdminPage() {
         </section>
         
       </div>
+      {confirmDialog.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(47, 62, 52, 0.8)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-md)'
+        }}>
+          <div style={{ background: 'white', padding: 'var(--spacing-xl)', borderRadius: 'var(--border-radius-lg)', width: '100%', maxWidth: '400px' }}>
+            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>
+              {confirmDialog.type === 'team' ? 'Delete Team?' : 'Delete Brand?'}
+            </h3>
+            <p>
+              {confirmDialog.type === 'team' 
+                ? 'Are you sure you want to delete this team? This will delete all their audits and data.'
+                : 'Are you sure you want to delete this brand?'}
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)' }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={() => setConfirmDialog({ isOpen: false, type: null, id: null })}>Cancel</button>
+              <button className="primary" style={{ flex: 1, background: 'var(--color-vibrant-rose)' }} onClick={executeDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
