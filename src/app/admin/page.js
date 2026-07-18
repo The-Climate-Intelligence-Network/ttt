@@ -7,28 +7,47 @@ import Link from 'next/link';
 export default function AdminPage() {
   const [teams, setTeams] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [events, setEvents] = useState([]);
   const [newBrandName, setNewBrandName] = useState('');
   const [editingBrand, setEditingBrand] = useState(null);
   const [editBrandName, setEditBrandName] = useState('');
+  const [newEventName, setNewEventName] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
 
   const fetchData = async () => {
     try {
-      // Fetch audits with team info
-      const { data: auditsData, error: auditsError } = await supabase
-        .from('audits')
+      // Fetch teams with their audits and event info
+      const { data: teamsData, error: teamsError } = await supabase
+        .from('teams')
         .select(`
           id,
-          status,
+          name,
+          event_id,
           created_at,
-          team_id,
-          teams ( id, name )
+          events ( id, name ),
+          audits ( id, status, created_at )
         `)
         .order('created_at', { ascending: false });
         
-      if (!auditsError && auditsData) {
-        setTeams(auditsData);
+      if (!teamsError && teamsData) {
+        const mappedTeams = teamsData.map(team => {
+          const sortedAudits = team.audits ? [...team.audits].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : [];
+          const audit = sortedAudits[0] || null;
+          return {
+            id: audit ? audit.id : `no-audit-${team.id}`,
+            status: audit ? audit.status : 'registered',
+            created_at: audit ? audit.created_at : team.created_at,
+            team_id: team.id,
+            teams: {
+              id: team.id,
+              name: team.name,
+              event_id: team.event_id,
+              events: team.events
+            }
+          };
+        });
+        setTeams(mappedTeams);
       }
 
       // Fetch brands
@@ -39,6 +58,16 @@ export default function AdminPage() {
         
       if (!brandsError && brandsData) {
         setBrands(brandsData);
+      }
+
+      // Fetch events
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('events')
+        .select('id, name, is_active')
+        .order('created_at', { ascending: false });
+        
+      if (!eventsError && eventsData) {
+        setEvents(eventsData);
       }
     } catch (err) {
       console.error(err);
@@ -127,6 +156,44 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddEvent = async (e) => {
+    e.preventDefault();
+    if (!newEventName.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('events')
+        .insert({ name: newEventName.trim(), is_active: true });
+        
+      if (!error) {
+        alert(`Event "${newEventName}" added successfully.`);
+        setNewEventName('');
+        fetchData();
+      } else {
+        alert('Error adding event: ' + error.message);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleEventActive = async (eventId, currentActiveStatus) => {
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ is_active: !currentActiveStatus })
+        .eq('id', eventId);
+        
+      if (!error) {
+        fetchData();
+      } else {
+        alert('Error updating event status: ' + error.message);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <main className="container" style={{ padding: 'var(--spacing-xl) 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
@@ -193,6 +260,55 @@ export default function AdminPage() {
             </div>
           </div>
         </section>
+
+        <section>
+          <h2>Manage Events</h2>
+          <form onSubmit={handleAddEvent} style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-lg)' }}>
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Add Event</label>
+              <input 
+                type="text" 
+                value={newEventName}
+                onChange={e => setNewEventName(e.target.value)}
+                placeholder="Event name (e.g. Beach Clean-up)..."
+                required
+              />
+            </div>
+            <button type="submit" className="primary"><Plus size={16} /> Add Event</button>
+          </form>
+
+          <div style={{ marginTop: 'var(--spacing-lg)' }}>
+            <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>Events</h3>
+            <div style={{ background: 'white', borderRadius: 'var(--border-radius-lg)', padding: 'var(--spacing-md)', maxHeight: '400px', overflowY: 'auto' }}>
+              {events.map(event => (
+                <div key={event.id} className="flex-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-surface)' }}>
+                  <div>
+                    <span style={{ fontWeight: event.is_active ? 'bold' : 'normal' }}>{event.name}</span>
+                  </div>
+                  <div>
+                    <button 
+                      type="button" 
+                      onClick={() => handleToggleEventActive(event.id, event.is_active)}
+                      style={{ 
+                        padding: '4px 10px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.75rem', 
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        border: '1px solid var(--color-surface)',
+                        background: event.is_active ? 'var(--color-sour-apple)' : 'var(--color-surface)',
+                        color: event.is_active ? 'var(--color-forest)' : 'var(--color-charcoal)'
+                      }}
+                    >
+                      {event.is_active ? 'Active' : 'Inactive'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {events.length === 0 && <span style={{ color: 'var(--color-forest)' }}>No events added yet.</span>}
+            </div>
+          </div>
+        </section>
         
         <section>
           <h2>Active Teams & Audits</h2>
@@ -204,8 +320,21 @@ export default function AdminPage() {
                     <div key={audit.id} className="flex-between" style={{ paddingBottom: 'var(--spacing-sm)', borderBottom: '1px solid var(--color-surface)' }}>
                       <div>
                         <strong>{audit.teams?.name || 'Unknown Team'}</strong>
+                        {audit.teams?.events?.name && (
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            background: 'var(--color-surface)', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            marginLeft: '8px', 
+                            color: 'var(--color-forest)',
+                            fontWeight: 'normal'
+                          }}>
+                            {audit.teams.events.name}
+                          </span>
+                        )}
                         <div style={{ fontSize: '0.8rem', color: 'var(--color-forest)' }}>
-                          Started: {new Date(audit.created_at).toLocaleTimeString()}
+                          {audit.status === 'registered' ? 'Registered' : 'Started'}: {new Date(audit.created_at).toLocaleTimeString()}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>

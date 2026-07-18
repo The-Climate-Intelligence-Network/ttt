@@ -106,7 +106,7 @@ export default function AddBrandModal({ onClose }) {
             </div>
             <h3 style={{ color: 'var(--color-deep-forest)', marginBottom: 'var(--spacing-sm)' }}>Photo Proof Required</h3>
             <p style={{ marginBottom: 'var(--spacing-lg)', fontSize: '1.1rem' }}>
-              You are adding <strong>{selectedBrand.name}</strong>. Please remember to take a photo of the item as proof and keep it on your phone.
+              You are adding <strong>{selectedBrand.name}</strong>. Please remember to take a photo of one item of the brand as proof and keep it on your phone.
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuditStore } from '@/store/auditStore';
 import { Plus, Minus, CheckCircle, Search } from 'lucide-react';
+import { syncCurrentState } from '@/hooks/useSync';
 import AddBrandModal from '@/components/AddBrandModal';
 
 export default function AuditPage() {
@@ -19,8 +20,10 @@ export default function AuditPage() {
 
   if (store.status === 'not_started') return null;
 
-  const handleCompleteAudit = () => {
+  const handleCompleteAudit = async () => {
     store.completeAudit();
+    // Sync immediately on complete so final counts and status are saved right away
+    await syncCurrentState({ syncTally: true });
     router.push('/audit/scorecard');
   };
 

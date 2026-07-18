@@ -19,19 +19,35 @@ export const useAuditStore = create(
       teamName: '',
       teamId: null,
       auditId: null,
+      eventId: null,
+      eventName: '',
       status: 'not_started', // 'not_started', 'in_progress', 'completed'
       brands: [], // Array of { id, name, is_custom, count }
       lastSyncedAt: null,
       hasUnsyncedChanges: false,
 
-      // Initialize the audit with a team name
-      startAudit: (teamName) => set({
+      // Initialize the audit with a team name and event details
+      startAudit: (teamName, eventId, eventName, teamId = null, auditId = null) => set({
         teamName,
-        teamId: crypto.randomUUID(),
-        auditId: crypto.randomUUID(),
+        teamId: teamId || crypto.randomUUID(),
+        auditId: auditId || crypto.randomUUID(),
+        eventId,
+        eventName,
         status: 'in_progress',
         brands: DEFAULT_BRANDS.map(b => ({ ...b })), // Deep copy default brands
         hasUnsyncedChanges: true,
+      }),
+
+      // Resume an existing audit
+      resumeAudit: (teamName, teamId, auditId, eventId, eventName, status, brands) => set({
+        teamName,
+        teamId,
+        auditId,
+        eventId,
+        eventName,
+        status,
+        brands,
+        hasUnsyncedChanges: false,
       }),
 
       // Rehydrate brands with actual DB IDs if fetched successfully, preserving counts
@@ -100,6 +116,8 @@ export const useAuditStore = create(
         teamName: '',
         teamId: null,
         auditId: null,
+        eventId: null,
+        eventName: '',
         status: 'not_started',
         brands: [],
         lastSyncedAt: null,
