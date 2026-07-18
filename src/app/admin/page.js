@@ -21,8 +21,20 @@ export default function AdminPage() {
   const [isMultiLocation, setIsMultiLocation] = useState(false);
   const [multiLocations, setMultiLocations] = useState(['']);
 
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [editEventData, setEditEventData] = useState({
+    name: '',
+    organization: '',
+    district: '',
+    location: '',
+    event_date: '',
+    is_multi_location: false,
+    locations: ['']
+  });
+
   const [bulkBrandsText, setBulkBrandsText] = useState('');
   const [isBulkAdding, setIsBulkAdding] = useState(false);
+  const [dragOverParent, setDragOverParent] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
@@ -266,6 +278,60 @@ export default function AdminPage() {
     }
   };
 
+  const handleDragStart = (e, brand) => {
+    e.dataTransfer.setData('brandId', brand.id);
+  };
+
+  const handleDragOver = (e, parentId) => {
+    e.preventDefault();
+    setDragOverParent(parentId);
+  };
+
+  const handleDragLeave = (e) => {
+    setDragOverParent(null);
+  };
+
+  const handleDrop = async (e, targetParentId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverParent(null);
+    
+    const brandId = e.dataTransfer.getData('brandId');
+    if (!brandId) return;
+    if (brandId === targetParentId) return; // Can't drop on itself
+    
+    // Check if dragging a parent into its own child
+    if (targetParentId) {
+      const targetBrand = brands.find(b => b.id === targetParentId);
+      if (targetBrand?.parent_id === brandId) {
+        alert("Cannot move a parent brand under its own sub-brand.");
+        return;
+      }
+    }
+
+    // Check if dragged brand has children
+    const hasChildren = brands.some(b => b.parent_id === brandId);
+    if (hasChildren && targetParentId !== null) {
+      alert("Cannot nest a brand that already has sub-brands. Move its sub-brands first.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('brands')
+        .update({ parent_id: targetParentId || null })
+        .eq('id', brandId);
+      
+      if (!error) {
+        fetchData();
+      } else {
+        alert('Error moving brand: ' + error.message);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!newEventName.trim()) return;
@@ -313,6 +379,45 @@ export default function AdminPage() {
         fetchData();
       } else {
         alert('Error updating event status: ' + error.message);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleEditEventClick = (event) => {
+    setEditingEventId(event.id);
+    setEditEventData({
+      name: event.name || '',
+      organization: event.organization || '',
+      district: event.district || '',
+      location: event.location || '',
+      event_date: event.event_date || '',
+      is_multi_location: event.is_multi_location || false,
+      locations: event.locations && event.locations.length > 0 ? event.locations : ['']
+    });
+  };
+
+  const handleEditEventSave = async (eventId) => {
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          name: editEventData.name.trim(),
+          organization: editEventData.organization.trim() || null,
+          district: editEventData.district.trim() || null,
+          location: editEventData.location.trim() || null,
+          event_date: editEventData.event_date || null,
+          is_multi_location: editEventData.is_multi_location,
+          locations: editEventData.is_multi_location ? editEventData.locations.filter(l => l.trim() !== '') : []
+        })
+        .eq('id', eventId);
+        
+      if (!error) {
+        setEditingEventId(null);
+        fetchData();
+      } else {
+        alert('Error updating event: ' + error.message);
       }
     } catch (err) {
       console.error(err);
@@ -396,9 +501,43 @@ export default function AdminPage() {
             <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>Current Brands</h3>
             <div style={{ background: 'white', borderRadius: 'var(--border-radius-lg)', padding: 'var(--spacing-md)', maxHeight: '600px', overflowY: 'auto' }}>
               
+              <div 
+                style={{ 
+                  padding: '12px', 
+                  marginBottom: '12px', 
+                  border: dragOverParent === 'root' ? '2px dashed var(--color-forest)' : '2px dashed var(--color-surface)',
+                  textAlign: 'center',
+                  color: 'var(--color-charcoal)',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem'
+                }}
+                onDragOver={(e) => handleDragOver(e, 'root')}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, null)}
+              >
+                Drop here to make a top-level Main Brand
+              </div>
+
               {brands.filter(b => !b.parent_id).map(mainBrand => (
-                <div key={mainBrand.id} style={{ marginBottom: 'var(--spacing-md)' }}>
-                  <div className="flex-between" style={{ padding: '8px 0', borderBottom: '2px solid var(--color-surface)', fontWeight: 'bold' }}>
+                <div 
+                  key={mainBrand.id} 
+                  style={{ 
+                    marginBottom: 'var(--spacing-md)',
+                    border: dragOverParent === mainBrand.id ? '2px dashed var(--color-forest)' : '2px dashed transparent',
+                    borderRadius: '8px',
+                    padding: '4px',
+                    transition: 'border-color 0.2s ease'
+                  }}
+                  onDragOver={(e) => handleDragOver(e, mainBrand.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, mainBrand.id)}
+                >
+                  <div 
+                    className="flex-between" 
+                    style={{ padding: '8px 0', borderBottom: '2px solid var(--color-surface)', fontWeight: 'bold', cursor: 'grab' }}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, mainBrand)}
+                  >
                     {editingBrand === mainBrand.id ? (
                       <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
                         <input 
@@ -442,7 +581,13 @@ export default function AdminPage() {
                   {/* Sub-brands */}
                   <div style={{ paddingLeft: 'var(--spacing-lg)' }}>
                     {brands.filter(b => b.parent_id === mainBrand.id).map(subBrand => (
-                      <div key={subBrand.id} className="flex-between" style={{ padding: '6px 0', borderBottom: '1px solid var(--color-surface)' }}>
+                      <div 
+                        key={subBrand.id} 
+                        className="flex-between" 
+                        style={{ padding: '6px 0', borderBottom: '1px solid var(--color-surface)', cursor: 'grab' }}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, subBrand)}
+                      >
                         {editingBrand === subBrand.id ? (
                           <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
                             <input 
@@ -634,33 +779,150 @@ export default function AdminPage() {
 
           <div style={{ marginTop: 'var(--spacing-lg)' }}>
             <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>Events</h3>
-            <div style={{ background: 'white', borderRadius: 'var(--border-radius-lg)', padding: 'var(--spacing-md)', maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', maxHeight: '600px', overflowY: 'auto', paddingRight: '4px' }}>
               {events.map(event => (
-                <div key={event.id} className="flex-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-surface)' }}>
-                  <div>
-                    <span style={{ fontWeight: event.is_active ? 'bold' : 'normal' }}>{event.name}</span>
-                  </div>
-                  <div>
-                    <button 
-                      type="button" 
-                      onClick={() => handleToggleEventActive(event.id, event.is_active)}
-                      style={{ 
-                        padding: '4px 10px', 
-                        borderRadius: '12px', 
-                        fontSize: '0.75rem', 
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        border: '1px solid var(--color-surface)',
-                        background: event.is_active ? 'var(--color-sour-apple)' : 'var(--color-surface)',
-                        color: event.is_active ? 'var(--color-forest)' : 'var(--color-charcoal)'
-                      }}
-                    >
-                      {event.is_active ? 'Active' : 'Inactive'}
-                    </button>
-                  </div>
+                <div key={event.id} style={{ background: 'white', borderRadius: 'var(--border-radius-lg)', padding: 'var(--spacing-md)', border: '1px solid var(--color-surface)', position: 'relative' }}>
+                  {editingEventId === event.id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <input 
+                        type="text" 
+                        value={editEventData.name} 
+                        onChange={e => setEditEventData({...editEventData, name: e.target.value})} 
+                        placeholder="Event Name"
+                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+                      />
+                      <input 
+                        type="text" 
+                        value={editEventData.organization} 
+                        onChange={e => setEditEventData({...editEventData, organization: e.target.value})} 
+                        placeholder="Organization"
+                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input 
+                          type="text" 
+                          value={editEventData.district} 
+                          onChange={e => setEditEventData({...editEventData, district: e.target.value})} 
+                          placeholder="District"
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', flex: 1 }}
+                        />
+                        <input 
+                          type="date" 
+                          value={editEventData.event_date} 
+                          onChange={e => setEditEventData({...editEventData, event_date: e.target.value})} 
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', flex: 1 }}
+                        />
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={editEventData.is_multi_location} 
+                          onChange={e => setEditEventData({...editEventData, is_multi_location: e.target.checked})} 
+                          style={{ width: 'auto' }}
+                        />
+                        Is Multi-Location?
+                      </label>
+                      {editEventData.is_multi_location ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {editEventData.locations.map((loc, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: '4px' }}>
+                              <input 
+                                type="text" 
+                                value={loc} 
+                                onChange={e => {
+                                  const newLocs = [...editEventData.locations];
+                                  newLocs[idx] = e.target.value;
+                                  setEditEventData({...editEventData, locations: newLocs});
+                                }} 
+                                placeholder={`Location ${idx + 1}`}
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--color-surface)', flex: 1 }}
+                              />
+                              <button type="button" onClick={() => {
+                                const newLocs = editEventData.locations.filter((_, i) => i !== idx);
+                                setEditEventData({...editEventData, locations: newLocs});
+                              }} style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer' }}><X size={16}/></button>
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => setEditEventData({...editEventData, locations: [...editEventData.locations, '']})} style={{ background: 'transparent', border: '1px dashed var(--color-jade)', color: 'var(--color-forest)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', alignSelf: 'flex-start' }}>+ Add Location</button>
+                        </div>
+                      ) : (
+                        <input 
+                          type="text" 
+                          value={editEventData.location} 
+                          onChange={e => setEditEventData({...editEventData, location: e.target.value})} 
+                          placeholder="Location"
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+                        />
+                      )}
+                      
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => handleEditEventSave(event.id)} className="primary" style={{ padding: '6px 12px', fontSize: '0.9rem' }}>Save</button>
+                        <button type="button" onClick={() => setEditingEventId(null)} className="secondary" style={{ padding: '6px 12px', fontSize: '0.9rem' }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div>
+                          <h4 style={{ margin: 0, color: 'var(--color-deep-forest)', fontSize: '1.1rem' }}>{event.name}</h4>
+                          {event.organization && <div style={{ fontSize: '0.85rem', color: 'var(--color-charcoal)' }}>{event.organization}</div>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            type="button" 
+                            onClick={() => handleEditEventClick(event)}
+                            style={{ 
+                              padding: '4px', 
+                              borderRadius: '4px', 
+                              background: 'var(--color-surface)',
+                              color: 'var(--color-charcoal)',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                            title="Edit Event"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleToggleEventActive(event.id, event.is_active)}
+                            style={{ 
+                              padding: '4px 8px', 
+                              borderRadius: '12px', 
+                              fontSize: '0.7rem', 
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              border: '1px solid var(--color-surface)',
+                              background: event.is_active ? 'var(--color-sour-apple)' : 'var(--color-surface)',
+                              color: event.is_active ? 'var(--color-forest)' : 'var(--color-charcoal)'
+                            }}
+                          >
+                            {event.is_active ? 'Active' : 'Inactive'}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.85rem', color: 'var(--color-charcoal)' }}>
+                        {event.event_date && (
+                          <div><strong>Date:</strong> {new Date(event.event_date).toLocaleDateString()}</div>
+                        )}
+                        {event.district && (
+                          <div><strong>District:</strong> {event.district}</div>
+                        )}
+                      </div>
+                      
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-charcoal)', marginTop: '4px' }}>
+                        <strong>Location: </strong> 
+                        {event.is_multi_location 
+                          ? (event.locations && event.locations.length > 0 ? event.locations.join(', ') : 'No locations defined') 
+                          : (event.location || 'Not specified')}
+                        {event.is_multi_location && <span style={{ marginLeft: '4px', background: 'var(--color-surface)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>Multi-Location</span>}
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
-              {events.length === 0 && <span style={{ color: 'var(--color-forest)' }}>No events added yet.</span>}
+              {events.length === 0 && <div style={{ background: 'white', padding: 'var(--spacing-md)', borderRadius: 'var(--border-radius-lg)', textAlign: 'center', color: 'var(--color-forest)' }}>No events added yet.</div>}
             </div>
           </div>
         </section>
