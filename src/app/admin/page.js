@@ -15,6 +15,43 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
 
+  const [expandedAuditId, setExpandedAuditId] = useState(null);
+  const [auditItems, setAuditItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const handleToggleExpand = async (auditId) => {
+    if (expandedAuditId === auditId) {
+      setExpandedAuditId(null);
+      setAuditItems([]);
+      return;
+    }
+    
+    setExpandedAuditId(auditId);
+    setLoadingItems(true);
+    try {
+      const { data, error } = await supabase
+        .from('audit_items')
+        .select(`
+          id,
+          count,
+          proof_photo_url,
+          brands ( name, is_custom )
+        `)
+        .eq('audit_id', auditId)
+        .order('count', { ascending: false });
+        
+      if (!error && data) {
+        setAuditItems(data);
+      } else {
+        setAuditItems([]);
+      }
+    } catch (err) {
+      console.error('Error fetching audit items:', err);
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
   const fetchData = async () => {
     try {
       // Fetch teams with their audits and event info
@@ -319,71 +356,124 @@ export default function AdminPage() {
               teams.length === 0 ? <p>No audits found.</p> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                   {teams.map(audit => (
-                    <div key={audit.id} className="flex-between" style={{ paddingBottom: 'var(--spacing-sm)', borderBottom: '1px solid var(--color-surface)' }}>
-                      <div>
-                        <strong>{audit.teams?.name || 'Unknown Team'}</strong>
-                        {audit.teams?.events?.name && (
-                          <span style={{ 
-                            fontSize: '0.75rem', 
-                            background: 'var(--color-surface)', 
-                            padding: '2px 6px', 
-                            borderRadius: '4px', 
-                            marginLeft: '8px', 
-                            color: 'var(--color-forest)',
-                            fontWeight: 'normal'
-                          }}>
-                            {audit.teams.events.name}
-                          </span>
-                        )}
-                        <div style={{ fontSize: '0.8rem', color: 'var(--color-forest)' }}>
-                          {audit.status === 'registered' ? 'Registered' : 'Started'}: {new Date(audit.created_at).toLocaleTimeString()}
-                        </div>
-                        {(audit.before_photo_url || audit.after_photo_url) && (
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                            {audit.before_photo_url && (
-                              <a 
-                                href={audit.before_photo_url} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                style={{ fontSize: '0.75rem', color: 'var(--color-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: '600' }}
-                              >
-                                📸 Before
-                              </a>
-                            )}
-                            {audit.before_photo_url && audit.after_photo_url && (
-                              <span style={{ fontSize: '0.75rem', color: '#ccc' }}>|</span>
-                            )}
-                            {audit.after_photo_url && (
-                              <a 
-                                href={audit.after_photo_url} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                style={{ fontSize: '0.75rem', color: 'var(--color-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: '600' }}
-                              >
-                                📸 After
-                              </a>
-                            )}
+                    <div key={audit.id} style={{ borderBottom: '1px solid var(--color-surface)', paddingBottom: 'var(--spacing-sm)' }}>
+                      <div className="flex-between" style={{ padding: '8px 0', cursor: 'pointer' }} onClick={() => handleToggleExpand(audit.id)}>
+                        <div>
+                          <strong>{audit.teams?.name || 'Unknown Team'}</strong>
+                          {audit.teams?.events?.name && (
+                            <span style={{ 
+                              fontSize: '0.75rem', 
+                              background: 'var(--color-surface)', 
+                              padding: '2px 6px', 
+                              borderRadius: '4px', 
+                              marginLeft: '8px', 
+                              color: 'var(--color-forest)',
+                              fontWeight: 'normal'
+                            }}>
+                              {audit.teams.events.name}
+                            </span>
+                          )}
+                          <div style={{ fontSize: '0.8rem', color: 'var(--color-forest)' }}>
+                            {audit.status === 'registered' ? 'Registered' : 'Started'}: {new Date(audit.created_at).toLocaleTimeString()}
                           </div>
-                        )}
+                          {(audit.before_photo_url || audit.after_photo_url) && (
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+                              {audit.before_photo_url && (
+                                <a 
+                                  href={audit.before_photo_url} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  style={{ fontSize: '0.75rem', color: 'var(--color-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: '600' }}
+                                >
+                                  📸 Before
+                                </a>
+                              )}
+                              {audit.before_photo_url && audit.after_photo_url && (
+                                <span style={{ fontSize: '0.75rem', color: '#ccc' }}>|</span>
+                              )}
+                              {audit.after_photo_url && (
+                                <a 
+                                  href={audit.after_photo_url} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  style={{ fontSize: '0.75rem', color: 'var(--color-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: '600' }}
+                                >
+                                  📸 After
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }} onClick={(e) => e.stopPropagation()}>
+                          <span style={{ 
+                            padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem',
+                            background: audit.status === 'completed' ? 'var(--color-sour-apple)' : 'var(--color-surface)',
+                            color: audit.status === 'completed' ? 'var(--color-forest)' : 'var(--color-charcoal)'
+                          }}>
+                            {audit.status}
+                          </span>
+                          <button 
+                            className="icon-only" 
+                            type="button"
+                            style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', padding: '4px', border: 'none', cursor: 'pointer', display: 'flex' }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteTeam(audit.team_id || audit.teams?.id); }}
+                            title="Delete Team"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                        <span style={{ 
-                          padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem',
-                          background: audit.status === 'completed' ? 'var(--color-sour-apple)' : 'var(--color-surface)',
-                          color: audit.status === 'completed' ? 'var(--color-forest)' : 'var(--color-charcoal)'
+
+                      {/* Expanded Section for Items & Proof Photos */}
+                      {expandedAuditId === audit.id && (
+                        <div style={{
+                          background: 'var(--color-surface)',
+                          padding: 'var(--spacing-md)',
+                          borderRadius: 'var(--border-radius-md)',
+                          marginTop: 'var(--spacing-xs)',
+                          marginBottom: 'var(--spacing-sm)',
+                          borderLeft: '4px solid var(--color-teal)'
                         }}>
-                          {audit.status}
-                        </span>
-                        <button 
-                          className="icon-only" 
-                          type="button"
-                          style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', padding: '4px', border: 'none', cursor: 'pointer', display: 'flex' }}
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteTeam(audit.team_id || audit.teams?.id); }}
-                          title="Delete Team"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                          <h4 style={{ fontSize: '0.9rem', marginBottom: 'var(--spacing-sm)', color: 'var(--color-deep-forest)' }}>
+                            Items Logged with Evidence:
+                          </h4>
+                          {loadingItems ? (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--color-forest)' }}>Loading items...</p>
+                          ) : auditItems.length === 0 ? (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--color-forest)' }}>No items logged yet.</p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {auditItems.map(item => (
+                                <div key={item.id} className="flex-between" style={{ fontSize: '0.85rem', borderBottom: '1px dashed #e2edd5', paddingBottom: '4px' }}>
+                                  <div>
+                                    <strong style={{ color: 'var(--color-charcoal)' }}>{item.brands?.name}</strong>
+                                    {item.brands?.is_custom && (
+                                      <span style={{ fontSize: '0.75rem', background: 'var(--color-sour-apple)', color: 'var(--color-forest)', padding: '1px 4px', borderRadius: '3px', marginLeft: '6px' }}>
+                                        Custom
+                                      </span>
+                                    )}
+                                    <span style={{ marginLeft: '8px', color: 'var(--color-forest)' }}>x{item.count}</span>
+                                  </div>
+                                  <div>
+                                    {item.proof_photo_url ? (
+                                      <a 
+                                        href={item.proof_photo_url} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        style={{ fontSize: '0.8rem', color: 'var(--color-teal)', textDecoration: 'none', fontWeight: 'bold' }}
+                                      >
+                                        View Proof 📸
+                                      </a>
+                                    ) : (
+                                      <span style={{ fontSize: '0.8rem', color: '#bbb' }}>No Proof Photo</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

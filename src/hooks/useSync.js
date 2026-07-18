@@ -31,7 +31,9 @@ export async function syncCurrentState(options = { syncTally: true }) {
            id: currentState.auditId, 
            team_id: currentState.teamId, 
            status: currentState.status,
-           completed_at: currentState.status === 'completed' ? new Date().toISOString() : null
+           completed_at: currentState.status === 'completed' ? new Date().toISOString() : null,
+           before_photo_url: currentState.beforePhotoUrl || null,
+           after_photo_url: currentState.afterPhotoUrl || null
          })
          .select()
          .single();
@@ -49,13 +51,14 @@ export async function syncCurrentState(options = { syncTally: true }) {
 
       // 4. Sync Audit Items (only those with counts > 0 to save bandwidth/DB space, or all. Let's do > 0)
       const itemsToSync = currentState.brands
-           .filter(b => b.count > 0 && !b.id.startsWith('default-')) // skip defaults if we haven't resolved DB IDs
-           .map(b => ({
-             audit_id: currentState.auditId,
-             brand_id: b.id,
-             count: b.count,
-             updated_at: new Date().toISOString()
-           }));
+            .filter(b => b.count > 0 && !b.id.startsWith('default-')) // skip defaults if we haven't resolved DB IDs
+            .map(b => ({
+              audit_id: currentState.auditId,
+              brand_id: b.id,
+              count: b.count,
+              proof_photo_url: b.proof_photo_url || null,
+              updated_at: new Date().toISOString()
+            }));
 
       if (itemsToSync.length > 0) {
          // Since we have a UNIQUE(audit_id, brand_id) constraint, upsert works well if we provide the conflict columns

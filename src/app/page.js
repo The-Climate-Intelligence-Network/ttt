@@ -135,7 +135,7 @@ export default function LandingPage() {
       // 2. Check if an audit already exists for this team
       const { data: auditData, error: auditError } = await supabase
         .from('audits')
-        .select('id, status')
+        .select('id, status, before_photo_url, after_photo_url')
         .eq('team_id', teamData.id)
         .maybeSingle();
 
@@ -148,7 +148,7 @@ export default function LandingPage() {
         // Resume existing audit
         const [brandsResponse, itemsResponse] = await Promise.all([
           supabase.from('brands').select('id, name, is_custom'),
-          supabase.from('audit_items').select('brand_id, count').eq('audit_id', auditData.id)
+          supabase.from('audit_items').select('brand_id, count, proof_photo_url').eq('audit_id', auditData.id)
         ]);
 
         if (brandsResponse.error) {
@@ -165,7 +165,8 @@ export default function LandingPage() {
             id: dbb.id,
             name: dbb.name,
             is_custom: dbb.is_custom,
-            count: item ? item.count : 0
+            count: item ? item.count : 0,
+            proof_photo_url: item ? (item.proof_photo_url || '') : ''
           };
         });
 
@@ -176,7 +177,9 @@ export default function LandingPage() {
           selectedEventId,
           eventName,
           auditData.status,
-          mergedBrands
+          mergedBrands,
+          auditData.before_photo_url || '',
+          auditData.after_photo_url || ''
         );
 
         if (auditData.status === 'completed') {
