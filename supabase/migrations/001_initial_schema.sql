@@ -13,6 +13,18 @@ CREATE TABLE IF NOT EXISTS brands (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure brands table has a unique constraint on name (in case the table already existed without it)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM pg_constraint 
+    WHERE conname = 'brands_name_key'
+  ) THEN
+    ALTER TABLE brands ADD CONSTRAINT brands_name_key UNIQUE (name);
+  END IF;
+END $$;
+
 -- Insert default brands provided by user
 INSERT INTO brands (name) VALUES 
   ('Coca-Cola'),
