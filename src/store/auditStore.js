@@ -1,0 +1,113 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+// Default brands provided by user as a fallback if offline
+const DEFAULT_BRANDS = [
+  'Coca-Cola', 'Pepsi', 'Nestlé', 'Maliban', 'Milo', 
+  'Unilever', 'Munchee', 'Cargills', 'Keells', 
+  'Elephant House', 'Kotmale', 'Lion Brewery', 'Marlborough'
+].map(name => ({
+  id: `default-${name.toLowerCase().replace(/\s+/g, '-')}`,
+  name,
+  is_custom: false,
+  count: 0
+}));
+
+export const useAuditStore = create(
+  persist(
+    (set, get) => ({
+      teamName: '',
+      teamId: null,
+      auditId: null,
+      status: 'not_started', // 'not_started', 'in_progress', 'completed'
+      brands: [], // Array of { id, name, is_custom, count }
+      lastSyncedAt: null,
+      hasUnsyncedChanges: false,
+
+      // Initialize the audit with a team name
+      startAudit: (teamName) => set({
+        teamName,
+        teamId: crypto.randomUUID(),
+        auditId: crypto.randomUUID(),
+        status: 'in_progress',
+        brands: DEFAULT_BRANDS.map(b => ({ ...b })), // Deep copy default brands
+        hasUnsyncedChanges: true,
+      }),
+
+      // Rehydrate brands with actual DB IDs if fetched successfully, preserving counts
+      setDbBrands: (dbBrands) => set((state) => {
+        // We need to merge dbBrands with our current counts
+        const newBrands = dbBrands.map(dbb => {
+          // Find if we already have this brand and it has a count
+          const existing = state.brands.find(b => b.name === dbb.name);
+          return {
+            id: dbb.id, // Use DB id
+            name: dbb.name,
+            is_custom: dbb.is_custom,
+            count: existing ? existing.count : 0
+          };
+        });
+        
+        // Also keep any custom brands the user added locally that aren't in DB yet
+        const customLocalBrands = state.brands.filter(b => b.is_custom && b.id.startsWith('custom-'));
+        
+        return { brands: [...newBrands, ...customLocalBrands] };
+      }),
+
+      incrementBrand: (brandId) => set((state) => ({
+        brands: state.brands.map(b => 
+          b.id === brandId ? { ...b, count: b.count + 1 } : b
+        ),
+        hasUnsyncedChanges: true
+      })),
+
+      decrementBrand: (brandId) => set((state) => ({
+        brands: state.brands.map(b => 
+          (b.id === brandId && b.count > 0) ? { ...b, count: b.count - 1 } : b
+        ),
+        hasUnsyncedChanges: true
+      })),
+
+      addCustomBrand: (name) => set((state) => {
+        // Check if already exists
+        if (state.brands.some(b => b.name.toLowerCase() === name.toLowerCase())) {
+          return state;
+        }
+        
+        const newBrand = {
+          id: crypto.randomUUID(),
+          name,
+          is_custom: true,
+          count: 0
+        };
+        return {
+          brands: [...state.brands, newBrand],
+          hasUnsyncedChanges: true
+        };
+      }),
+
+      completeAudit: () => set({
+        status: 'completed',
+        hasUnsyncedChanges: true
+      }),
+
+      markSynced: () => set({
+        lastSyncedAt: Date.now(),
+        hasUnsyncedChanges: false
+      }),
+      
+      resetAudit: () => set({
+        teamName: '',
+        teamId: null,
+        auditId: null,
+        status: 'not_started',
+        brands: [],
+        lastSyncedAt: null,
+        hasUnsyncedChanges: false
+      })
+    }),
+    {
+      name: 'ttt-audit-storage', // key in localStorage
+    }
+  )
+);

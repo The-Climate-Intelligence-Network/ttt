@@ -1,0 +1,198 @@
+:root {
+  /* Surface */
+  --color-surface: #F7FAF4;
+  
+  /* Primary Brand Anchors */
+  --color-deep-forest: #3F664F;
+  --color-forest: #568265;
+  
+  /* Energy Layer */
+  --color-teal: #46A6A8;
+  
+  /* Action & Conversion */
+  --color-sunflower: #FCCE55;
+  
+  /* Support & Status */
+  --color-jade: #92C3A4;
+  --color-sour-apple: #DBF58E;
+  --color-vibrant-rose: #FB6E52;
+  --color-deep-iris: #6E5A9E;
+  
+  /* Text */
+  --color-charcoal: #2F3E34;
+  
+  /* Shared Defaults */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-charcoal);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-deep-forest);
+  line-height: 1.2;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+
+p {
+  margin-bottom: var(--spacing-md);
+  color: var(--color-charcoal);
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+button.primary {
+  background-color: var(--color-sunflower);
+  color: var(--color-deep-forest);
+}
+
+button.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(252, 206, 85, 0.4);
+}
+
+button.secondary {
+  background-color: transparent;
+  border: 2px solid var(--color-forest);
+  color: var(--color-forest);
+}
+
+button.secondary:hover {
+  background-color: var(--color-forest);
+  color: white;
+}
+
+button.danger {
+  background-color: var(--color-vibrant-rose);
+  color: white;
+}
+
+button.icon-only {
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+/* Forms */
+input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-jade);
+  border-radius: var(--border-radius-sm);
+  font-size: 1rem;
+  color: var(--color-charcoal);
+  background: white;
+  transition: border-color 0.2s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--color-teal);
+  box-shadow: 0 0 0 2px rgba(70, 166, 168, 0.2);
+}
+
+/* Layout Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+}
+
+.mobile-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-md);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Fun Gamified Tweaks for TTT */
+.tally-card {
+  background: white;
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+  transition: transform 0.1s ease;
+}
+
+.tally-card:active {
+  transform: scale(0.98);
+}
+
+.tally-count {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-teal);
+  min-width: 3rem;
+  text-align: center;
+}
+
+.bottom-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--spacing-md);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-jade);
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
