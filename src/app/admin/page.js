@@ -26,7 +26,7 @@ export default function AdminPage() {
           event_id,
           created_at,
           events ( id, name ),
-          audits ( id, status, created_at )
+          audits ( id, status, created_at, before_photo_url, after_photo_url )
         `)
         .order('created_at', { ascending: false });
         
@@ -38,6 +38,8 @@ export default function AdminPage() {
             id: audit ? audit.id : `no-audit-${team.id}`,
             status: audit ? audit.status : 'registered',
             created_at: audit ? audit.created_at : team.created_at,
+            before_photo_url: audit ? audit.before_photo_url : null,
+            after_photo_url: audit ? audit.after_photo_url : null,
             team_id: team.id,
             teams: {
               id: team.id,
@@ -336,6 +338,33 @@ export default function AdminPage() {
                         <div style={{ fontSize: '0.8rem', color: 'var(--color-forest)' }}>
                           {audit.status === 'registered' ? 'Registered' : 'Started'}: {new Date(audit.created_at).toLocaleTimeString()}
                         </div>
+                        {(audit.before_photo_url || audit.after_photo_url) && (
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                            {audit.before_photo_url && (
+                              <a 
+                                href={audit.before_photo_url} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ fontSize: '0.75rem', color: 'var(--color-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: '600' }}
+                              >
+                                📸 Before
+                              </a>
+                            )}
+                            {audit.before_photo_url && audit.after_photo_url && (
+                              <span style={{ fontSize: '0.75rem', color: '#ccc' }}>|</span>
+                            )}
+                            {audit.after_photo_url && (
+                              <a 
+                                href={audit.after_photo_url} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ fontSize: '0.75rem', color: 'var(--color-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: '600' }}
+                              >
+                                📸 After
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
                         <span style={{ 
