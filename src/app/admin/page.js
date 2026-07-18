@@ -4,6 +4,14 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Trash2, Pencil, Check, X, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 
+const SRI_LANKA_DISTRICTS = [
+  "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", 
+  "Galle", "Gampaha", "Hambantota", "Jaffna", "Kalutara", 
+  "Kandy", "Kegalle", "Kilinochchi", "Kurunegala", "Mannar", 
+  "Matale", "Matara", "Moneragala", "Mullaitivu", "Nuwara Eliya", 
+  "Polonnaruwa", "Puttalam", "Ratnapura", "Trincomalee", "Vavuniya"
+];
+
 export default function AdminPage() {
   const [teams, setTeams] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -168,6 +176,10 @@ export default function AdminPage() {
       } else if (type === 'brand') {
         const { error } = await supabase.from('brands').delete().eq('id', id);
         if (error) alert("Error deleting brand: " + error.message);
+        else fetchData();
+      } else if (type === 'event') {
+        const { error } = await supabase.from('events').delete().eq('id', id);
+        if (error) alert("Error deleting event: " + error.message);
         else fetchData();
       }
     } catch (err) {
@@ -424,25 +436,9 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteEvent = async (eventId) => {
-    if (!window.confirm('Are you sure you want to delete this event? This will also remove any associated teams and audits. This action cannot be undone.')) {
-      return;
-    }
-    
-    try {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', eventId);
-        
-      if (!error) {
-        fetchData();
-      } else {
-        alert('Error deleting event: ' + error.message);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDeleteEvent = (eventId) => {
+    if (!eventId) return;
+    setConfirmDialog({ isOpen: true, type: 'event', id: eventId });
   };
 
   return (
@@ -680,7 +676,16 @@ export default function AdminPage() {
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>District</label>
-                <input type="text" value={newDistrict} onChange={e => setNewDistrict(e.target.value)} placeholder="District..." />
+                <select 
+                  value={newDistrict} 
+                  onChange={e => setNewDistrict(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', background: 'white' }}
+                >
+                  <option value="">Select District...</option>
+                  {SRI_LANKA_DISTRICTS.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Date</label>
@@ -820,13 +825,16 @@ export default function AdminPage() {
                         style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)' }}
                       />
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <input 
-                          type="text" 
+                        <select 
                           value={editEventData.district} 
-                          onChange={e => setEditEventData({...editEventData, district: e.target.value})} 
-                          placeholder="District"
-                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', flex: 1 }}
-                        />
+                          onChange={e => setEditEventData({...editEventData, district: e.target.value})}
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', flex: 1, background: 'white' }}
+                        >
+                          <option value="">Select District...</option>
+                          {SRI_LANKA_DISTRICTS.map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
                         <input 
                           type="date" 
                           value={editEventData.event_date} 
@@ -1105,12 +1113,14 @@ export default function AdminPage() {
         }}>
           <div style={{ background: 'white', padding: 'var(--spacing-xl)', borderRadius: 'var(--border-radius-lg)', width: '100%', maxWidth: '400px' }}>
             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>
-              {confirmDialog.type === 'team' ? 'Delete Team?' : 'Delete Brand?'}
+              {confirmDialog.type === 'team' ? 'Delete Team?' : confirmDialog.type === 'brand' ? 'Delete Brand?' : 'Delete Event?'}
             </h3>
             <p>
               {confirmDialog.type === 'team' 
                 ? 'Are you sure you want to delete this team? This will delete all their audits and data.'
-                : 'Are you sure you want to delete this brand?'}
+                : confirmDialog.type === 'brand'
+                ? 'Are you sure you want to delete this brand?'
+                : 'Are you sure you want to delete this event? This will also remove all associated teams and audits. This action cannot be undone.'}
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)' }}>
               <button className="secondary" style={{ flex: 1 }} onClick={() => setConfirmDialog({ isOpen: false, type: null, id: null })}>Cancel</button>
