@@ -12,6 +12,7 @@ export default function LandingPage() {
   const [auditName, setAuditName] = useState('');
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
   const [loadingEvents, setLoadingEvents] = useState(true);
   
   const [registerError, setRegisterError] = useState('');
@@ -29,7 +30,7 @@ export default function LandingPage() {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select('id, name')
+          .select('id, name, is_multi_location, locations')
           .eq('is_active', true)
           .order('created_at', { ascending: false });
           
@@ -58,6 +59,13 @@ export default function LandingPage() {
     setIsRegistering(true);
 
     try {
+      const selectedEvent = events.find(ev => ev.id === selectedEventId);
+      if (selectedEvent?.is_multi_location && !selectedLocation.trim()) {
+        setRegisterError('Please select or enter a location.');
+        setIsRegistering(false);
+        return;
+      }
+
       // 1. Check if team already exists under this event
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
@@ -81,7 +89,8 @@ export default function LandingPage() {
         .from('teams')
         .insert({
           name: registerName.trim(),
-          event_id: selectedEventId
+          event_id: selectedEventId,
+          location: selectedLocation.trim() || null
         })
         .select()
         .single();
@@ -225,7 +234,7 @@ export default function LandingPage() {
           Track The Trash
         </h1>
         <p style={{ fontSize: '1.1rem', marginBottom: 'var(--spacing-lg)', color: 'var(--color-forest)' }}>
-          Beach Clean-up Brand Audit
+          Clean-up Brand Audit
         </p>
 
         {/* Global Event Selection */}
@@ -238,7 +247,7 @@ export default function LandingPage() {
           textAlign: 'left'
         }}>
           <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)', fontWeight: '700', color: 'var(--color-deep-forest)' }}>
-            Select Beach Clean-up Event
+            Select Clean-up Event
           </label>
           {loadingEvents ? (
             <p style={{ color: 'var(--color-forest)' }}>Loading active events...</p>
@@ -251,6 +260,7 @@ export default function LandingPage() {
               value={selectedEventId}
               onChange={(e) => {
                 setSelectedEventId(e.target.value);
+                setSelectedLocation('');
                 setRegisterError('');
                 setRegisterSuccess('');
                 setAuditError('');
@@ -271,6 +281,41 @@ export default function LandingPage() {
               ))}
             </select>
           )}
+
+          {(() => {
+            const ev = events.find(e => e.id === selectedEventId);
+            if (ev && ev.is_multi_location) {
+              return (
+                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                  <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)', fontWeight: '700', color: 'var(--color-deep-forest)' }}>
+                    Select or Enter Location
+                  </label>
+                  <input
+                    list="event-locations"
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    placeholder="Type or select location..."
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      fontSize: '1.1rem',
+                      borderRadius: 'var(--border-radius-sm)',
+                      border: '1px solid var(--color-jade)',
+                      background: 'white',
+                      color: 'var(--color-charcoal)'
+                    }}
+                  />
+                  <datalist id="event-locations">
+                    {Array.isArray(ev.locations) && ev.locations.map((loc, idx) => (
+                      <option key={idx} value={loc} />
+                    ))}
+                  </datalist>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
 
         {/* Main interactive form panel */}

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Track The Trash | CIN",
-  description: "Beach Clean-up Brand Audit Tool",
+  description: "The Brand Audit Tool for Cleanup Events",
 };
 
 export default function RootLayout({ children }) {

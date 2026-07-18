@@ -12,6 +12,13 @@ export default function AdminPage() {
   const [editingBrand, setEditingBrand] = useState(null);
   const [editBrandName, setEditBrandName] = useState('');
   const [newEventName, setNewEventName] = useState('');
+  const [newOrganization, setNewOrganization] = useState('');
+  const [newDistrict, setNewDistrict] = useState('');
+  const [newLocation, setNewLocation] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [isMultiLocation, setIsMultiLocation] = useState(false);
+  const [multiLocations, setMultiLocations] = useState(['']);
+
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
 
@@ -202,11 +209,26 @@ export default function AdminPage() {
     try {
       const { error } = await supabase
         .from('events')
-        .insert({ name: newEventName.trim(), is_active: true });
+        .insert({ 
+          name: newEventName.trim(), 
+          is_active: true,
+          organization: newOrganization.trim() || null,
+          district: newDistrict.trim() || null,
+          location: newLocation.trim() || null,
+          event_date: newDate || null,
+          is_multi_location: isMultiLocation,
+          locations: isMultiLocation ? multiLocations.filter(l => l.trim() !== '') : []
+        });
         
       if (!error) {
         alert(`Event "${newEventName}" added successfully.`);
         setNewEventName('');
+        setNewOrganization('');
+        setNewDistrict('');
+        setNewLocation('');
+        setNewDate('');
+        setIsMultiLocation(false);
+        setMultiLocations(['']);
         fetchData();
       } else {
         alert('Error adding event: ' + error.message);
@@ -304,7 +326,7 @@ export default function AdminPage() {
           <h2>Manage Events</h2>
           <form onSubmit={handleAddEvent} style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-lg)' }}>
             <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Add Event</label>
+              <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Event Name *</label>
               <input 
                 type="text" 
                 value={newEventName}
@@ -313,7 +335,67 @@ export default function AdminPage() {
                 required
               />
             </div>
-            <button type="submit" className="primary"><Plus size={16} /> Add Event</button>
+            
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Organization</label>
+              <input type="text" value={newOrganization} onChange={e => setNewOrganization(e.target.value)} placeholder="Organization..." />
+            </div>
+            
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>District</label>
+                <input type="text" value={newDistrict} onChange={e => setNewDistrict(e.target.value)} placeholder="District..." />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Date</label>
+                <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={isMultiLocation} onChange={e => setIsMultiLocation(e.target.checked)} />
+                <span style={{ fontWeight: 'bold', color: 'var(--color-forest)' }}>Is Multi-Location Event?</span>
+              </label>
+            </div>
+
+            {isMultiLocation ? (
+              <div style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', background: 'var(--color-surface)', borderRadius: 'var(--border-radius-sm)' }}>
+                <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)', fontWeight: 'bold' }}>Locations List</label>
+                {multiLocations.map((loc, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <input 
+                      type="text" 
+                      value={loc} 
+                      onChange={e => {
+                        const newLocs = [...multiLocations];
+                        newLocs[idx] = e.target.value;
+                        setMultiLocations(newLocs);
+                      }} 
+                      placeholder={`Location ${idx + 1}`} 
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setMultiLocations(multiLocations.filter((_, i) => i !== idx))}
+                      style={{ background: 'white', color: 'var(--color-vibrant-rose)', border: '1px solid var(--color-surface)', padding: '0 10px', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      <X size={16}/>
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setMultiLocations([...multiLocations, ''])} style={{ background: 'transparent', border: '1px dashed var(--color-jade)', color: 'var(--color-forest)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  + Add Another Location
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>Base Location</label>
+                <input type="text" value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Event location..." />
+              </div>
+            )}
+
+            <button type="submit" className="primary" style={{ width: '100%' }}><Plus size={16} /> Add Event</button>
           </form>
 
           <div style={{ marginTop: 'var(--spacing-lg)' }}>
