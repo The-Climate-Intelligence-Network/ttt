@@ -1,14 +1,14 @@
 -- Create teams table
-CREATE TABLE teams (
+CREATE TABLE IF NOT EXISTS teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Create brands table
-CREATE TABLE brands (
+CREATE TABLE IF NOT EXISTS brands (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   is_custom BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -27,11 +27,12 @@ INSERT INTO brands (name) VALUES
   ('Elephant House'),
   ('Kotmale'),
   ('Lion Brewery'),
-  ('Marlborough');
+  ('Marlborough')
+ON CONFLICT (name) DO NOTHING;
 
 -- Create audits table
 -- status can be 'in_progress' or 'completed'
-CREATE TABLE audits (
+CREATE TABLE IF NOT EXISTS audits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'in_progress',
@@ -40,7 +41,7 @@ CREATE TABLE audits (
 );
 
 -- Create audit_items table
-CREATE TABLE audit_items (
+CREATE TABLE IF NOT EXISTS audit_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   audit_id UUID NOT NULL REFERENCES audits(id) ON DELETE CASCADE,
   brand_id UUID NOT NULL REFERENCES brands(id) ON DELETE RESTRICT,
@@ -57,9 +58,17 @@ ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public select on brands" ON brands;
 CREATE POLICY "Allow public select on brands" ON brands FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert on brands" ON brands;
 CREATE POLICY "Allow public insert on brands" ON brands FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public all on teams" ON teams;
 CREATE POLICY "Allow public all on teams" ON teams FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all on audits" ON audits;
 CREATE POLICY "Allow public all on audits" ON audits FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all on audit_items" ON audit_items;
 CREATE POLICY "Allow public all on audit_items" ON audit_items FOR ALL USING (true) WITH CHECK (true);
