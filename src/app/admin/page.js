@@ -424,6 +424,27 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteEvent = async (eventId) => {
+    if (!window.confirm('Are you sure you want to delete this event? This will also remove any associated teams and audits. This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId);
+        
+      if (!error) {
+        fetchData();
+      } else {
+        alert('Error deleting event: ' + error.message);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <main className="container" style={{ padding: 'var(--spacing-xl) 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
@@ -882,6 +903,21 @@ export default function AdminPage() {
                             title="Edit Event"
                           >
                             <Pencil size={14} />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteEvent(event.id)}
+                            style={{ 
+                              padding: '4px', 
+                              borderRadius: '4px', 
+                              background: 'var(--color-surface)',
+                              color: 'var(--color-vibrant-rose)',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                            title="Delete Event"
+                          >
+                            <Trash2 size={14} />
                           </button>
                           <button 
                             type="button" 
