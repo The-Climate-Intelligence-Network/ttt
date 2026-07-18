@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuditStore } from '@/store/auditStore';
-import { Plus, Minus, CheckCircle, Search, Camera, Upload, Trash2, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { Plus, Minus, CheckCircle, Search, Camera, Upload, Trash2, Loader2, AlertCircle, Sparkles, ImageIcon } from 'lucide-react';
 import { syncCurrentState } from '@/hooks/useSync';
 import AddBrandModal from '@/components/AddBrandModal';
 import CameraModal from '@/components/CameraModal';
@@ -26,6 +26,9 @@ export default function AuditPage() {
   // Nudge states
   const [showBeforePhotoNudge, setShowBeforePhotoNudge] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+
+  // Deletion confirm modal state
+  const [photoToDelete, setPhotoToDelete] = useState(null); // 'before', 'after', or null
 
   // Hidden file inputs
   const beforeInputRef = useRef(null);
@@ -136,16 +139,27 @@ export default function AuditPage() {
     }
   };
 
-  // Remove photo
-  const handleRemovePhoto = async (type) => {
-    if (window.confirm(`Are you sure you want to remove the ${type} beach photo?`)) {
-      if (type === 'before') {
-        store.setBeforePhotoUrl('');
-      } else {
-        store.setAfterPhotoUrl('');
+  // Remove photo from storage & store
+  const executePhotoRemoval = async (type) => {
+    const url = type === 'before' ? store.beforePhotoUrl : store.afterPhotoUrl;
+    if (url) {
+      try {
+        // Extract the storage path relative to the bucket from the public URL
+        const path = url.split('/public/ttt/')[1];
+        if (path) {
+          await supabase.storage.from('ttt').remove([path]);
+        }
+      } catch (err) {
+        console.error('Failed to delete photo from storage:', err);
       }
-      await syncCurrentState({ syncTally: false });
     }
+
+    if (type === 'before') {
+      store.setBeforePhotoUrl('');
+    } else {
+      store.setAfterPhotoUrl('');
+    }
+    await syncCurrentState({ syncTally: false });
   };
 
   // Sort brands: pin active ones (count > 0) to top, then alphabetical
@@ -206,7 +220,7 @@ export default function AuditPage() {
               <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Uploading...</span>
             </div>
           ) : store.beforePhotoUrl ? (
-            <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+            <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 5 }}>
               <img 
                 src={store.beforePhotoUrl} 
                 alt="Before Beach" 
@@ -215,16 +229,29 @@ export default function AuditPage() {
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
                 background: 'rgba(0,0,0,0.6)', color: 'white',
-                padding: '4px 8px', fontSize: '0.75rem', fontWeight: 'bold',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                padding: '6px 8px', fontSize: '0.75rem', fontWeight: 'bold',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                zIndex: 10
               }}>
                 <span>Before Photo</span>
                 <button 
-                  onClick={() => handleRemovePhoto('before')} 
-                  style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', padding: '2px', cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotoToDelete('before');
+                  }} 
+                  style={{ 
+                    background: 'transparent', 
+                    color: 'var(--color-vibrant-rose)', 
+                    padding: '6px', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 20
+                  }}
                   title="Delete Photo"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -275,7 +302,7 @@ export default function AuditPage() {
               <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Uploading...</span>
             </div>
           ) : store.afterPhotoUrl ? (
-            <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+            <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 5 }}>
               <img 
                 src={store.afterPhotoUrl} 
                 alt="After Beach" 
@@ -284,16 +311,29 @@ export default function AuditPage() {
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
                 background: 'rgba(0,0,0,0.6)', color: 'white',
-                padding: '4px 8px', fontSize: '0.75rem', fontWeight: 'bold',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                padding: '6px 8px', fontSize: '0.75rem', fontWeight: 'bold',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                zIndex: 10
               }}>
                 <span>After Photo</span>
                 <button 
-                  onClick={() => handleRemovePhoto('after')} 
-                  style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', padding: '2px', cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotoToDelete('after');
+                  }} 
+                  style={{ 
+                    background: 'transparent', 
+                    color: 'var(--color-vibrant-rose)', 
+                    padding: '6px', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 20
+                  }}
                   title="Delete Photo"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -371,9 +411,40 @@ export default function AuditPage() {
       <div>
         {displayBrands.map(brand => (
           <div key={brand.id} className="tally-card">
-            <div style={{ flex: 1 }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--color-deep-forest)' }}>{brand.name}</h3>
-              {brand.is_custom && <span style={{ fontSize: '0.75rem', color: 'var(--color-forest)', background: 'var(--color-sour-apple)', padding: '2px 6px', borderRadius: '4px' }}>Custom</span>}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+              {brand.proof_photo_url ? (
+                <img 
+                  src={brand.proof_photo_url} 
+                  alt={brand.name} 
+                  style={{ 
+                    width: '48px', 
+                    height: '48px', 
+                    borderRadius: 'var(--border-radius-md)', 
+                    objectFit: 'cover',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    flexShrink: 0
+                  }}
+                />
+              ) : (
+                <div style={{ 
+                  width: '48px', 
+                  height: '48px', 
+                  borderRadius: 'var(--border-radius-md)', 
+                  background: 'rgba(0, 0, 0, 0.03)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  border: '1px dashed var(--color-jade)',
+                  color: 'var(--color-forest)',
+                  flexShrink: 0
+                }}>
+                  <ImageIcon size={20} />
+                </div>
+              )}
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--color-deep-forest)' }}>{brand.name}</h3>
+                {brand.is_custom && <span style={{ fontSize: '0.75rem', color: 'var(--color-forest)', background: 'var(--color-sour-apple)', padding: '2px 6px', borderRadius: '4px' }}>Custom</span>}
+              </div>
             </div>
             
             <div className="flex-center" style={{ gap: 'var(--spacing-md)' }}>
@@ -491,6 +562,41 @@ export default function AuditPage() {
           onClose={() => setCameraType(null)} 
           onCapture={handleCameraCapture} 
         />
+      )}
+
+      {/* Custom Photo Delete Confirmation Modal */}
+      {photoToDelete && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(47, 62, 52, 0.8)', zIndex: 3000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-md)'
+        }}>
+          <div style={{ 
+            background: 'white', 
+            padding: 'var(--spacing-xl)', 
+            borderRadius: 'var(--border-radius-lg)', 
+            width: '100%', 
+            maxWidth: '400px', 
+            color: 'var(--color-charcoal)' 
+          }}>
+            <h3 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--color-deep-forest)' }}>Remove Photo?</h3>
+            <p>Are you sure you want to remove the {photoToDelete} beach photo? This will delete the photo from our servers.</p>
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)' }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={() => setPhotoToDelete(null)}>Cancel</button>
+              <button 
+                className="primary" 
+                style={{ flex: 1, background: 'var(--color-vibrant-rose)', color: 'white' }} 
+                onClick={async () => {
+                  const type = photoToDelete;
+                  setPhotoToDelete(null);
+                  await executePhotoRemoval(type);
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

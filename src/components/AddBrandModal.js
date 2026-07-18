@@ -89,8 +89,18 @@ export default function AddBrandModal({ onClose }) {
     await processAndUploadProof(file);
   };
 
-  const handleRemovePhoto = () => {
+  const handleRemovePhoto = async () => {
     if (window.confirm('Are you sure you want to remove the proof photo?')) {
+      if (proofPhotoUrl) {
+        try {
+          const path = proofPhotoUrl.split('/public/ttt/')[1];
+          if (path) {
+            await supabase.storage.from('ttt').remove([path]);
+          }
+        } catch (err) {
+          console.error('Failed to delete proof photo from storage:', err);
+        }
+      }
       setProofPhotoUrl('');
     }
   };
