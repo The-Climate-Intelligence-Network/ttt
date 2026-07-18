@@ -27,9 +27,8 @@ export default function AuditPage() {
   // Sort brands: custom ones or those with count > 0 at top? 
   // Let's just sort alphabetically, but pin those with count > 0 at top.
   const activeBrands = store.brands.filter(b => b.count > 0).sort((a, b) => b.count - a.count);
-  const inactiveBrands = store.brands.filter(b => b.count === 0).sort((a, b) => a.name.localeCompare(b.name));
   
-  const displayBrands = [...activeBrands, ...inactiveBrands];
+  const displayBrands = activeBrands;
 
   return (
     <main className="mobile-container" style={{ paddingBottom: '100px', paddingTop: 'var(--spacing-md)' }}>

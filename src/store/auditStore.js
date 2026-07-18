@@ -78,7 +78,7 @@ export const useAuditStore = create(
           id: crypto.randomUUID(),
           name,
           is_custom: true,
-          count: 0
+          count: 1
         };
         return {
           brands: [...state.brands, newBrand],
