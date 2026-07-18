@@ -9,8 +9,10 @@ export default function AdminPage() {
   const [brands, setBrands] = useState([]);
   const [events, setEvents] = useState([]);
   const [newBrandName, setNewBrandName] = useState('');
+  const [newParentId, setNewParentId] = useState('');
   const [editingBrand, setEditingBrand] = useState(null);
   const [editBrandName, setEditBrandName] = useState('');
+  const [editParentId, setEditParentId] = useState('');
   const [newEventName, setNewEventName] = useState('');
   const [newOrganization, setNewOrganization] = useState('');
   const [newDistrict, setNewDistrict] = useState('');
@@ -18,6 +20,9 @@ export default function AdminPage() {
   const [newDate, setNewDate] = useState('');
   const [isMultiLocation, setIsMultiLocation] = useState(false);
   const [multiLocations, setMultiLocations] = useState(['']);
+
+  const [bulkBrandsText, setBulkBrandsText] = useState('');
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
@@ -99,7 +104,7 @@ export default function AdminPage() {
       // Fetch brands
       const { data: brandsData, error: brandsError } = await supabase
         .from('brands')
-        .select('id, name, is_custom')
+        .select('id, name, is_custom, parent_id')
         .order('name');
         
       if (!brandsError && brandsData) {
@@ -168,11 +173,12 @@ export default function AdminPage() {
     try {
       const { error } = await supabase
         .from('brands')
-        .insert({ name: newBrandName.trim(), is_custom: false });
+        .insert({ name: newBrandName.trim(), is_custom: false, parent_id: newParentId || null });
         
       if (!error) {
         alert(`Brand ${newBrandName} added successfully.`);
         setNewBrandName('');
+        setNewParentId('');
         fetchData();
       } else {
         alert('Error adding brand.');
@@ -187,18 +193,76 @@ export default function AdminPage() {
     try {
       const { error } = await supabase
         .from('brands')
-        .update({ name: editBrandName.trim() })
+        .update({ name: editBrandName.trim(), parent_id: editParentId || null })
         .eq('id', brandId);
       
       if (!error) {
         setEditingBrand(null);
         setEditBrandName('');
+        setEditParentId('');
         fetchData();
       } else {
         alert('Error updating brand: ' + error.message);
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleBulkAddBrands = async () => {
+    if (!bulkBrandsText.trim()) return;
+    setIsBulkAdding(true);
+    
+    try {
+      const lines = bulkBrandsText.split(/\r?\n/).filter(l => l.trim() !== '');
+      const newBrands = [];
+      
+      // Parse CSV: Brand Name, Parent Brand Name
+      for (const line of lines) {
+        const parts = line.split(',').map(p => p.trim());
+        const brandName = parts[0];
+        const parentName = parts.length > 1 ? parts[1] : null;
+        if (brandName) {
+           newBrands.push({ name: brandName, parentName, is_custom: false });
+        }
+      }
+      
+      let addedCount = 0;
+      
+      // First pass: Process all unique parent names and insert them if they don't exist
+      const uniqueParents = [...new Set(newBrands.map(b => b.parentName).filter(Boolean))];
+      
+      for (const pName of uniqueParents) {
+         const existing = brands.find(b => b.name.toLowerCase() === pName.toLowerCase());
+         if (!existing) {
+            await supabase.from('brands').insert({ name: pName, is_custom: false });
+         }
+      }
+      
+      // Fetch fresh brands to get the new parent IDs
+      const { data: freshBrands } = await supabase.from('brands').select('id, name');
+      
+      // Second pass: Insert the actual brands
+      for (const b of newBrands) {
+         const existingBrand = freshBrands?.find(fb => fb.name.toLowerCase() === b.name.toLowerCase());
+         if (!existingBrand) {
+            let parent_id = null;
+            if (b.parentName) {
+               parent_id = freshBrands?.find(fb => fb.name.toLowerCase() === b.parentName.toLowerCase())?.id || null;
+            }
+            await supabase.from('brands').insert({ name: b.name, parent_id, is_custom: false });
+            addedCount++;
+         }
+      }
+      
+      alert(`Bulk add completed. Added ${addedCount} new brands.`);
+      setBulkBrandsText('');
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert('Error during bulk add: ' + err.message);
+    } finally {
+      setIsBulkAdding(false);
     }
   };
 
@@ -277,46 +341,152 @@ export default function AdminPage() {
                 onChange={e => setNewBrandName(e.target.value)}
                 placeholder="Brand name..."
                 required
+                style={{ width: '100%', marginBottom: '8px' }}
               />
+              <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)', fontSize: '0.9rem' }}>Parent Brand (Optional)</label>
+              <select 
+                value={newParentId} 
+                onChange={e => setNewParentId(e.target.value)}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+              >
+                <option value="">None (Main Brand)</option>
+                {brands.filter(b => !b.parent_id).map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
             </div>
             <button type="submit" className="primary"><Plus size={16} /> Add Brand</button>
           </form>
 
+          <div style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-lg)', marginTop: 'var(--spacing-md)' }}>
+            <label style={{ display: 'block', marginBottom: 'var(--spacing-xs)', fontSize: '0.9rem', color: 'var(--color-forest)', fontWeight: 'bold' }}>
+              Bulk Add Brands (CSV Format)
+            </label>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-charcoal)', marginBottom: '12px' }}>
+              Format: <code>Brand Name, Parent Brand Name</code> (Parent is optional, one per line)
+            </p>
+            <textarea 
+              value={bulkBrandsText}
+              onChange={e => setBulkBrandsText(e.target.value)}
+              placeholder="e.g.&#10;Nestle&#10;Milo, Nestle&#10;Nescafe, Nestle"
+              rows={4}
+              style={{ 
+                width: '100%', 
+                padding: '8px', 
+                borderRadius: 'var(--border-radius-sm)', 
+                border: '1px solid var(--color-jade)', 
+                fontSize: '0.9rem', 
+                fontFamily: 'inherit',
+                marginBottom: '12px',
+                resize: 'vertical'
+              }}
+            />
+            <button 
+              type="button" 
+              className="secondary" 
+              onClick={handleBulkAddBrands} 
+              disabled={isBulkAdding}
+              style={{ width: '100%' }}
+            >
+              {isBulkAdding ? 'Processing...' : 'Bulk Add Brands'}
+            </button>
+          </div>
+
           <div style={{ marginTop: 'var(--spacing-lg)' }}>
             <h3 style={{ marginBottom: 'var(--spacing-sm)' }}>Current Brands</h3>
-            <div style={{ background: 'white', borderRadius: 'var(--border-radius-lg)', padding: 'var(--spacing-md)', maxHeight: '400px', overflowY: 'auto' }}>
-              {brands.map(brand => (
-                <div key={brand.id} className="flex-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-surface)' }}>
-                  {editingBrand === brand.id ? (
-                    <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
-                      <input 
-                        type="text" 
-                        value={editBrandName}
-                        onChange={e => setEditBrandName(e.target.value)}
-                        style={{ padding: '4px 8px', flex: 1, borderRadius: '4px', border: '1px solid var(--color-surface)' }}
-                        autoFocus
-                      />
-                      <button type="button" style={{ background: 'transparent', color: 'var(--color-forest)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => handleEditBrand(brand.id)} title="Save"><Check size={18} /></button>
-                      <button type="button" style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => setEditingBrand(null)} title="Cancel"><X size={18} /></button>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>{brand.name}</span>
-                        {brand.is_custom && <span style={{ fontSize: '0.75rem', background: 'var(--color-sour-apple)', padding: '2px 6px', borderRadius: '4px', color: 'var(--color-forest)' }}>Custom</span>}
+            <div style={{ background: 'white', borderRadius: 'var(--border-radius-lg)', padding: 'var(--spacing-md)', maxHeight: '600px', overflowY: 'auto' }}>
+              
+              {brands.filter(b => !b.parent_id).map(mainBrand => (
+                <div key={mainBrand.id} style={{ marginBottom: 'var(--spacing-md)' }}>
+                  <div className="flex-between" style={{ padding: '8px 0', borderBottom: '2px solid var(--color-surface)', fontWeight: 'bold' }}>
+                    {editingBrand === mainBrand.id ? (
+                      <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
+                        <input 
+                          type="text" 
+                          value={editBrandName}
+                          onChange={e => setEditBrandName(e.target.value)}
+                          style={{ padding: '4px 8px', flex: 1, borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+                          autoFocus
+                        />
+                        <select 
+                          value={editParentId} 
+                          onChange={e => setEditParentId(e.target.value)}
+                          style={{ padding: '4px', borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+                        >
+                          <option value="">None (Main Brand)</option>
+                          {brands.filter(b => !b.parent_id && b.id !== mainBrand.id).map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                        <button type="button" style={{ background: 'transparent', color: 'var(--color-forest)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => handleEditBrand(mainBrand.id)} title="Save"><Check size={18} /></button>
+                        <button type="button" style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => setEditingBrand(null)} title="Cancel"><X size={18} /></button>
                       </div>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button type="button" style={{ background: 'transparent', color: 'var(--color-charcoal)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => { setEditingBrand(brand.id); setEditBrandName(brand.name); }} title="Edit Brand">
-                          <Pencil size={16} />
-                        </button>
-                        <button type="button" style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => handleDeleteBrand(brand.id)} title="Delete Brand">
-                          <Trash2 size={16} />
-                        </button>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{mainBrand.name}</span>
+                          {mainBrand.is_custom && <span style={{ fontSize: '0.75rem', background: 'var(--color-sour-apple)', padding: '2px 6px', borderRadius: '4px', color: 'var(--color-forest)' }}>Custom</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button type="button" style={{ background: 'transparent', color: 'var(--color-charcoal)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => { setEditingBrand(mainBrand.id); setEditBrandName(mainBrand.name); setEditParentId(''); }} title="Edit Brand">
+                            <Pencil size={16} />
+                          </button>
+                          <button type="button" style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => handleDeleteBrand(mainBrand.id)} title="Delete Brand">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Sub-brands */}
+                  <div style={{ paddingLeft: 'var(--spacing-lg)' }}>
+                    {brands.filter(b => b.parent_id === mainBrand.id).map(subBrand => (
+                      <div key={subBrand.id} className="flex-between" style={{ padding: '6px 0', borderBottom: '1px solid var(--color-surface)' }}>
+                        {editingBrand === subBrand.id ? (
+                          <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
+                            <input 
+                              type="text" 
+                              value={editBrandName}
+                              onChange={e => setEditBrandName(e.target.value)}
+                              style={{ padding: '4px 8px', flex: 1, borderRadius: '4px', border: '1px solid var(--color-surface)' }}
+                              autoFocus
+                            />
+                            <select 
+                              value={editParentId} 
+                              onChange={e => setEditParentId(e.target.value)}
+                              style={{ padding: '4px', borderRadius: '4px', border: '1px solid var(--color-surface)', maxWidth: '120px' }}
+                            >
+                              <option value="">None (Main Brand)</option>
+                              {brands.filter(b => !b.parent_id).map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                            <button type="button" style={{ background: 'transparent', color: 'var(--color-forest)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => handleEditBrand(subBrand.id)} title="Save"><Check size={18} /></button>
+                            <button type="button" style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => setEditingBrand(null)} title="Cancel"><X size={18} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-charcoal)' }}>
+                              <span>└ {subBrand.name}</span>
+                              {subBrand.is_custom && <span style={{ fontSize: '0.7rem', background: 'var(--color-sour-apple)', padding: '2px 4px', borderRadius: '4px', color: 'var(--color-forest)' }}>Custom</span>}
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button type="button" style={{ background: 'transparent', color: 'var(--color-charcoal)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => { setEditingBrand(subBrand.id); setEditBrandName(subBrand.name); setEditParentId(subBrand.parent_id || ''); }} title="Edit Brand">
+                                <Pencil size={14} />
+                              </button>
+                              <button type="button" style={{ background: 'transparent', color: 'var(--color-vibrant-rose)', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }} onClick={() => handleDeleteBrand(subBrand.id)} title="Delete Brand">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </>
-                  )}
+                    ))}
+                  </div>
                 </div>
               ))}
+              
               {brands.length === 0 && <span style={{ color: 'var(--color-forest)' }}>No brands added yet.</span>}
             </div>
           </div>
@@ -632,7 +802,7 @@ export default function AdminPage() {
       {confirmDialog.isOpen && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-          background: 'rgba(47, 62, 52, 0.8)', zIndex: 100,
+          background: 'rgba(47, 62, 52, 0.8)', zIndex: 10000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-md)'
         }}>
           <div style={{ background: 'white', padding: 'var(--spacing-xl)', borderRadius: 'var(--border-radius-lg)', width: '100%', maxWidth: '400px' }}>

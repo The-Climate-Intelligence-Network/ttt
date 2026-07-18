@@ -47,7 +47,10 @@ export default function AdminDashboard() {
         console.error('Error fetching teams:', teamsError.message);
       }
 
-      // 2. Fetch all audit items
+      // 2. Fetch all brands to resolve parent-child relationships
+      const { data: allBrands } = await supabase.from('brands').select('id, name, parent_id');
+
+      // 3. Fetch all audit items
       const { data: itemsData, error: itemsError } = await supabase
         .from('audit_items')
         .select(`
@@ -97,9 +100,20 @@ export default function AdminDashboard() {
           // Accumulate global item count
           total += item.count;
           
-          // Accumulate brand tallies
-          const brandName = item.brands?.name || 'Unknown';
-          brandCounts[brandName] = (brandCounts[brandName] || 0) + item.count;
+          // Accumulate brand tallies with parent-child relationship
+          const brandData = allBrands?.find(b => b.id === item.brand_id) || { id: item.brand_id, name: item.brands?.name || 'Unknown', parent_id: null };
+          
+          let targetBrandId = brandData.parent_id || brandData.id;
+          let targetBrandName = allBrands?.find(b => b.id === targetBrandId)?.name || brandData.name;
+          
+          if (!brandCounts[targetBrandName]) {
+            brandCounts[targetBrandName] = { total: 0, subBrands: {} };
+          }
+          brandCounts[targetBrandName].total += item.count;
+          
+          if (brandData.parent_id) {
+            brandCounts[targetBrandName].subBrands[brandData.name] = (brandCounts[targetBrandName].subBrands[brandData.name] || 0) + item.count;
+          }
           
           // Accumulate team leaderboards
           if (teamId) {
@@ -114,14 +128,14 @@ export default function AdminDashboard() {
             }
             teamMap[teamId].totalItems += item.count;
             if (item.count > 0) {
-              teamMap[teamId].uniqueBrands.add(item.brand_id);
+              teamMap[teamId].uniqueBrands.add(targetBrandId); // Count unique parent brands instead of all subbrands individually
             }
           }
         });
         
         // Format and sort Brand Statistics (descending of count)
         const sortedStats = Object.entries(brandCounts)
-          .map(([name, count]) => ({ name, count }))
+          .map(([name, data]) => ({ name, count: data.total, subBrands: data.subBrands }))
           .sort((a, b) => b.count - a.count);
           
         // Format and sort Team Leaderboard (descending of unique brands found, secondary total items)
@@ -370,6 +384,25 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                 </div>
+
+                {/* Sub-brands breakdown */}
+                {stat.subBrands && Object.keys(stat.subBrands).length > 0 && (
+                  <div style={{ 
+                    zIndex: 1, 
+                    marginTop: 'var(--spacing-sm)', 
+                    paddingTop: 'var(--spacing-sm)', 
+                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    fontSize: '0.85rem',
+                    color: 'var(--color-jade)',
+                    lineHeight: 1.4
+                  }}>
+                    <span style={{ fontWeight: '600', color: 'rgba(255,255,255,0.7)' }}>Includes:</span>{' '}
+                    {Object.entries(stat.subBrands)
+                       .sort((a, b) => b[1] - a[1])
+                       .map(([subName, subCount]) => `${subName} (${subCount})`)
+                       .join(', ')}
+                  </div>
+                )}
               </div>
             ))}
             
