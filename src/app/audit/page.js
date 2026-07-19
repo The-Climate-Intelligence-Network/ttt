@@ -34,7 +34,15 @@ export default function AuditPage() {
   const beforeInputRef = useRef(null);
   const afterInputRef = useRef(null);
 
+  const [hasHydrated, setHasHydrated] = useState(false);
+
   useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+
     if (store.status === 'not_started') {
       router.replace('/');
       return;
@@ -55,19 +63,26 @@ export default function AuditPage() {
     };
 
     loadDbBrands();
-  }, [store.status, router]);
+  }, [hasHydrated, store.status, router]);
 
   // Reactive nudge trigger: show nudge if brand count > 0, beforePhoto is missing, and not dismissed
   useEffect(() => {
+    if (!hasHydrated) return;
     const hasActiveBrands = store.brands.some(b => b.count > 0);
     if (hasActiveBrands && !store.beforePhotoUrl && !nudgeDismissed) {
       setShowBeforePhotoNudge(true);
     } else {
       setShowBeforePhotoNudge(false);
     }
-  }, [store.brands, store.beforePhotoUrl, nudgeDismissed]);
+  }, [hasHydrated, store.brands, store.beforePhotoUrl, nudgeDismissed]);
 
-  if (store.status === 'not_started') return null;
+  if (!hasHydrated || store.status === 'not_started') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-forest)' }}>
+        <Loader2 className="spin-animation" size={40} style={{ animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
 
   const handleCompleteAudit = async () => {
     store.completeAudit();

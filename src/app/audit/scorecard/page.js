@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuditStore } from '@/store/auditStore';
 import * as htmlToImage from 'html-to-image';
-import { Share2, Download, Home } from 'lucide-react';
+import { Share2, Download, Home, Loader2 } from 'lucide-react';
 
 export default function ScoreCardPage() {
   const store = useAuditStore();
@@ -11,13 +11,27 @@ export default function ScoreCardPage() {
   const cardRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const [hasHydrated, setHasHydrated] = useState(false);
+
   useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+
     if (store.status === 'not_started') {
       router.replace('/');
     }
-  }, [store.status, router]);
+  }, [hasHydrated, store.status, router]);
 
-  if (store.status === 'not_started') return null;
+  if (!hasHydrated || store.status === 'not_started') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-forest)' }}>
+        <Loader2 className="spin-animation" size={40} style={{ animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
 
   const activeBrands = store.brands.filter(b => b.count > 0).sort((a, b) => b.count - a.count);
   const topBrands = activeBrands.slice(0, 3);
