@@ -94,8 +94,9 @@ export default function AdminPage() {
           id,
           name,
           event_id,
+          location,
           created_at,
-          events ( id, name ),
+          events ( id, name, is_multi_location ),
           audits ( id, status, created_at, before_photo_url, after_photo_url )
         `)
         .order('created_at', { ascending: false });
@@ -115,6 +116,7 @@ export default function AdminPage() {
               id: team.id,
               name: team.name,
               event_id: team.event_id,
+              location: team.location,
               events: team.events
             }
           };
@@ -1029,19 +1031,37 @@ export default function AdminPage() {
                     <div key={audit.id} style={{ borderBottom: '1px solid var(--color-surface)', paddingBottom: 'var(--spacing-sm)' }}>
                       <div className="flex-between" style={{ padding: '8px 0', cursor: 'pointer' }} onClick={() => handleToggleExpand(audit.id)}>
                         <div>
-                          <strong>{audit.teams?.name || 'Unknown Team'}</strong>
-                          {audit.teams?.events?.name && (
-                            <span style={{ 
-                              fontSize: '0.75rem', 
-                              background: 'var(--color-surface)', 
-                              padding: '2px 6px', 
-                              borderRadius: '4px', 
-                              marginLeft: '8px', 
-                              color: 'var(--color-forest)',
-                              fontWeight: 'normal'
-                            }}>
-                              {audit.teams.events.name}
-                            </span>
+                          <div>
+                            <strong>{audit.teams?.name || 'Unknown Team'}</strong>
+                          </div>
+                          {(audit.teams?.events?.name || (audit.teams?.events?.is_multi_location && audit.teams?.location)) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', marginBottom: '4px' }}>
+                              {audit.teams?.events?.name && (
+                                <span style={{ 
+                                  fontSize: '0.75rem', 
+                                  background: 'var(--color-surface)', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '4px', 
+                                  color: 'var(--color-forest)',
+                                  fontWeight: 'normal'
+                                }}>
+                                  {audit.teams.events.name}
+                                </span>
+                              )}
+                              {audit.teams?.events?.is_multi_location && audit.teams?.location && (
+                                <span style={{ 
+                                  fontSize: '0.75rem', 
+                                  background: 'var(--color-surface)', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '4px', 
+                                  color: 'var(--color-charcoal)',
+                                  fontWeight: 'normal',
+                                  border: '1px solid #e2edd5'
+                                }}>
+                                  📍 {audit.teams.location}
+                                </span>
+                              )}
+                            </div>
                           )}
                           <div style={{ fontSize: '0.8rem', color: 'var(--color-forest)' }}>
                             {audit.status === 'registered' ? 'Registered' : 'Started'}: {new Date(audit.created_at).toLocaleTimeString()}
