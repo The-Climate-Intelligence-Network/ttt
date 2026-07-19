@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuditStore } from '@/store/auditStore';
-import { Plus, Minus, CheckCircle, Search, Camera, Upload, Trash2, Loader2, AlertCircle, Sparkles, ImageIcon } from 'lucide-react';
+import { Plus, Minus, CheckCircle, Search, Camera, Upload, Trash2, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { syncCurrentState } from '@/hooks/useSync';
 import AddBrandModal from '@/components/AddBrandModal';
 import CameraModal from '@/components/CameraModal';
@@ -427,7 +427,7 @@ export default function AuditPage() {
         {displayBrands.map(brand => (
           <div key={brand.id} className="tally-card">
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-              {brand.proof_photo_url ? (
+              {brand.proof_photo_url && (
                 <img 
                   src={brand.proof_photo_url} 
                   alt={brand.name} 
@@ -440,21 +440,6 @@ export default function AuditPage() {
                     flexShrink: 0
                   }}
                 />
-              ) : (
-                <div style={{ 
-                  width: '48px', 
-                  height: '48px', 
-                  borderRadius: 'var(--border-radius-md)', 
-                  background: 'rgba(0, 0, 0, 0.03)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  border: '1px dashed var(--color-jade)',
-                  color: 'var(--color-forest)',
-                  flexShrink: 0
-                }}>
-                  <ImageIcon size={20} />
-                </div>
               )}
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--color-deep-forest)' }}>{brand.name}</h3>
