@@ -380,7 +380,7 @@ export default function AuditPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={18} style={{ color: 'var(--color-forest)', flexShrink: 0 }} />
             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-              💡: Consider adding a <strong>Before Photo</strong> of the location!
+              Consider adding a <strong>Before Photo</strong> of the location!
             </span>
           </div>
           <button 

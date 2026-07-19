@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
 
   const [expandedAuditId, setExpandedAuditId] = useState(null);
+  const [expandedEventLocations, setExpandedEventLocations] = useState({});
   const [auditItems, setAuditItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
 
@@ -134,7 +135,7 @@ export default function AdminPage() {
       // Fetch events
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select('id, name, is_active')
+        .select('id, name, is_active, event_date, district, location, is_multi_location, locations, organization')
         .order('created_at', { ascending: false });
         
       if (!eventsError && eventsData) {
@@ -957,10 +958,57 @@ export default function AdminPage() {
                       
                       <div style={{ fontSize: '0.85rem', color: 'var(--color-charcoal)', marginTop: '4px' }}>
                         <strong>Location: </strong> 
-                        {event.is_multi_location 
-                          ? (event.locations && event.locations.length > 0 ? event.locations.join(', ') : 'No locations defined') 
-                          : (event.location || 'Not specified')}
-                        {event.is_multi_location && <span style={{ marginLeft: '4px', background: 'var(--color-surface)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>Multi-Location</span>}
+                        {event.is_multi_location ? (
+                          <>
+                            <span style={{ background: 'var(--color-surface)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', marginRight: '8px', border: '1px solid var(--color-jade)', color: 'var(--color-forest)', fontWeight: 'bold' }}>
+                              Multi-Location
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedEventLocations(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--color-teal)',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                textDecoration: 'underline',
+                                padding: 0,
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {expandedEventLocations[event.id] ? 'Hide Locations' : `View Locations (${event.locations?.length || 0})`}
+                            </button>
+                            
+                            {expandedEventLocations[event.id] && (
+                              <div style={{
+                                marginTop: '8px',
+                                padding: '8px 12px',
+                                background: 'var(--color-surface)',
+                                borderRadius: 'var(--border-radius-sm)',
+                                border: '1px solid var(--color-jade)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                maxHeight: '150px',
+                                overflowY: 'auto'
+                              }}>
+                                {event.locations && event.locations.length > 0 ? (
+                                  event.locations.map((loc, idx) => (
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ color: 'var(--color-forest)' }}>•</span>
+                                      <span>{loc}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div style={{ color: 'var(--color-forest)', fontStyle: 'italic' }}>No locations defined</div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span>{event.location || 'Not specified'}</span>
+                        )}
                       </div>
                     </>
                   )}
