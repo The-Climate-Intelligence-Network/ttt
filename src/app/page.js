@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuditStore } from '@/store/auditStore';
 import { supabase } from '@/lib/supabase';
 import { syncCurrentState } from '@/hooks/useSync';
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, Search } from 'lucide-react';
 
 export default function LandingPage() {
   const [registerName, setRegisterName] = useState('');
@@ -22,8 +22,21 @@ export default function LandingPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const locationRef = useRef(null);
+
   const store = useAuditStore();
   const router = useRouter();
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (locationRef.current && !locationRef.current.contains(event.target)) {
+        setIsLocationDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchActiveEvents = async () => {
@@ -285,32 +298,103 @@ export default function LandingPage() {
           {(() => {
             const ev = events.find(e => e.id === selectedEventId);
             if (ev && ev.is_multi_location) {
+              const filteredLocations = (Array.isArray(ev.locations) ? ev.locations : [])
+                .filter(loc => loc.toLowerCase().includes(selectedLocation.toLowerCase()));
+              const exactMatch = (Array.isArray(ev.locations) ? ev.locations : [])
+                .some(loc => loc.toLowerCase() === selectedLocation.trim().toLowerCase());
+
               return (
-                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                <div ref={locationRef} style={{ marginTop: 'var(--spacing-md)', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: 'var(--spacing-sm)', fontWeight: '700', color: 'var(--color-deep-forest)' }}>
                     Select or Enter Location
                   </label>
-                  <input
-                    list="event-locations"
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    placeholder="Type or select location..."
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      fontSize: '1.1rem',
-                      borderRadius: 'var(--border-radius-sm)',
-                      border: '1px solid var(--color-jade)',
+                  <div style={{ position: 'relative' }}>
+                    <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-forest)' }} />
+                    <input
+                      type="text"
+                      value={selectedLocation}
+                      onChange={(e) => {
+                        setSelectedLocation(e.target.value);
+                        setIsLocationDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsLocationDropdownOpen(true)}
+                      placeholder="Type to search or select location..."
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem 0.75rem 2.5rem',
+                        fontSize: '1.1rem',
+                        borderRadius: 'var(--border-radius-sm)',
+                        border: '1px solid var(--color-jade)',
+                        background: 'white',
+                        color: 'var(--color-charcoal)'
+                      }}
+                    />
+                  </div>
+
+                  {isLocationDropdownOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      zIndex: 50,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
                       background: 'white',
-                      color: 'var(--color-charcoal)'
-                    }}
-                  />
-                  <datalist id="event-locations">
-                    {Array.isArray(ev.locations) && ev.locations.map((loc, idx) => (
-                      <option key={idx} value={loc} />
-                    ))}
-                  </datalist>
+                      border: '1px solid var(--color-jade)',
+                      borderRadius: 'var(--border-radius-md)',
+                      marginTop: 'var(--spacing-xs)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}>
+                      {selectedLocation.trim() && !exactMatch && (
+                        <div 
+                          onClick={() => {
+                            setIsLocationDropdownOpen(false);
+                          }}
+                          style={{ 
+                            padding: 'var(--spacing-sm) var(--spacing-md)', 
+                            borderBottom: '1px solid var(--color-surface)', 
+                            cursor: 'pointer', 
+                            color: 'var(--color-teal)', 
+                            fontWeight: 'bold',
+                            fontSize: '1rem'
+                          }}
+                        >
+                          + Use "{selectedLocation}" as a new location
+                        </div>
+                      )}
+                      
+                      {filteredLocations.map((loc, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => {
+                            setSelectedLocation(loc);
+                            setIsLocationDropdownOpen(false);
+                          }}
+                          style={{ 
+                            padding: 'var(--spacing-sm) var(--spacing-md)', 
+                            borderBottom: '1px solid var(--color-surface)', 
+                            cursor: 'pointer', 
+                            fontSize: '1.1rem',
+                            color: 'var(--color-charcoal)',
+                            background: 'white',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = 'var(--color-surface)'}
+                          onMouseLeave={(e) => e.target.style.background = 'white'}
+                        >
+                          {loc}
+                        </div>
+                      ))}
+                      
+                      {filteredLocations.length === 0 && !exactMatch && (
+                        <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', color: 'var(--color-forest)', fontSize: '0.95rem' }}>
+                          No locations found. Type to use a custom location.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             }
