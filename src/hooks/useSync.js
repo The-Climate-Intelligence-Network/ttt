@@ -42,15 +42,68 @@ export async function syncCurrentState(options = { syncTally: true }) {
     if (options.syncTally) {
       // 3. Sync Custom Brands
       const customBrands = currentState.brands.filter(b => b.is_custom);
+      const resolvedBrands = []; // Array of { localId, dbId, name, is_custom }
+
       for (const cb of customBrands) {
-         // Upsert the custom brand. If it already exists, no harm.
-         await supabase
+         // Escape special characters in name for PostgreSQL ILIKE
+         const escapedName = cb.name.replace(/[%_\\]/g, '\\$&');
+         const { data: existingBrand, error } = await supabase
            .from('brands')
-           .upsert({ id: cb.id, name: cb.name, is_custom: true });
+           .select('id, name, is_custom')
+           .ilike('name', escapedName)
+           .maybeSingle();
+
+         if (!error && existingBrand) {
+           resolvedBrands.push({
+             localId: cb.id,
+             dbId: existingBrand.id,
+             name: existingBrand.name,
+             is_custom: existingBrand.is_custom
+           });
+         } else {
+           // Insert new brand
+           const { data: newBrand, error: insertError } = await supabase
+             .from('brands')
+             .insert({ name: cb.name, is_custom: true })
+             .select()
+             .single();
+
+           if (!insertError && newBrand) {
+             resolvedBrands.push({
+               localId: cb.id,
+               dbId: newBrand.id,
+               name: newBrand.name,
+               is_custom: true
+             });
+           } else {
+             resolvedBrands.push({
+               localId: cb.id,
+               dbId: cb.id,
+               name: cb.name,
+               is_custom: true
+             });
+           }
+         }
       }
 
+      // Update local store with the resolved IDs so subsequent operations use the correct IDs
+      if (resolvedBrands.length > 0) {
+        const storeState = useAuditStore.getState();
+        const updatedBrands = storeState.brands.map(b => {
+          const resolved = resolvedBrands.find(rb => rb.localId === b.id);
+          if (resolved) {
+            return { ...b, id: resolved.dbId, name: resolved.name, is_custom: resolved.is_custom };
+          }
+          return b;
+        });
+        useAuditStore.setState({ brands: updatedBrands });
+      }
+
+      // Read updated brands to sync audit items
+      const updatedBrandsList = useAuditStore.getState().brands;
+
       // 4. Sync Audit Items (only those with counts > 0 to save bandwidth/DB space, or all. Let's do > 0)
-      const itemsToSync = currentState.brands
+      const itemsToSync = updatedBrandsList
             .filter(b => b.count > 0 && !b.id.startsWith('default-')) // skip defaults if we haven't resolved DB IDs
             .map(b => ({
               audit_id: currentState.auditId,

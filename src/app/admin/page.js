@@ -203,6 +203,13 @@ export default function AdminPage() {
   const handleAddBrand = async (e) => {
     e.preventDefault();
     if (!newBrandName.trim()) return;
+
+    // Check if brand with this name already exists case-insensitively
+    const existing = brands.find(b => b.name.toLowerCase() === newBrandName.trim().toLowerCase());
+    if (existing) {
+      alert(`Brand "${newBrandName.trim()}" already exists (as "${existing.name}").`);
+      return;
+    }
     
     try {
       const { error } = await supabase
@@ -224,6 +231,14 @@ export default function AdminPage() {
 
   const handleEditBrand = async (brandId) => {
     if (!editBrandName.trim()) return;
+
+    // Check if brand with this name already exists case-insensitively for other brands
+    const existing = brands.find(b => b.id !== brandId && b.name.toLowerCase() === editBrandName.trim().toLowerCase());
+    if (existing) {
+      alert(`Brand name "${editBrandName.trim()}" is already taken by another brand.`);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('brands')
