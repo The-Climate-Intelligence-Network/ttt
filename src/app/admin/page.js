@@ -177,6 +177,13 @@ export default function AdminPage() {
         else if (!data || data.length === 0) alert("Error: Team not found or no permission.");
         else fetchData();
       } else if (type === 'brand') {
+        // First delete any audit items referencing this brand (client-side fallback for RESTRICT constraint)
+        const { error: itemsError } = await supabase.from('audit_items').delete().eq('brand_id', id);
+        if (itemsError) {
+          alert("Error deleting audit items for this brand: " + itemsError.message);
+          return;
+        }
+
         const { error } = await supabase.from('brands').delete().eq('id', id);
         if (error) alert("Error deleting brand: " + error.message);
         else fetchData();
