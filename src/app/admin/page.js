@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Trash2, Pencil, Check, X, LayoutDashboard } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, LayoutDashboard, Merge } from 'lucide-react';
 import Link from 'next/link';
 
 const SRI_LANKA_DISTRICTS = [
@@ -43,6 +43,12 @@ export default function AdminPage() {
   const [bulkBrandsText, setBulkBrandsText] = useState('');
   const [isBulkAdding, setIsBulkAdding] = useState(false);
   const [dragOverParent, setDragOverParent] = useState(null);
+
+  // Merge brands state
+  const [mergeSourceId, setMergeSourceId] = useState('');
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeConfirmDialog, setMergeConfirmDialog] = useState({ isOpen: false, sourceBrand: null, targetBrand: null });
 
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
@@ -466,6 +472,115 @@ export default function AdminPage() {
     setConfirmDialog({ isOpen: true, type: 'event', id: eventId });
   };
 
+  const handleMergeBrandsClick = () => {
+    if (!mergeSourceId || !mergeTargetId) {
+      alert('Please select both a source brand and a target brand.');
+      return;
+    }
+    if (mergeSourceId === mergeTargetId) {
+      alert('Source and target brands must be different.');
+      return;
+    }
+    const sourceBrand = brands.find(b => b.id === mergeSourceId);
+    const targetBrand = brands.find(b => b.id === mergeTargetId);
+    if (!sourceBrand || !targetBrand) {
+      alert('Invalid brand selection.');
+      return;
+    }
+    setMergeConfirmDialog({ isOpen: true, sourceBrand, targetBrand });
+  };
+
+  const executeMergeBrands = async () => {
+    const { sourceBrand, targetBrand } = mergeConfirmDialog;
+    if (!sourceBrand || !targetBrand) return;
+    setIsMerging(true);
+
+    try {
+      // 1. Get all audit_items for the source brand
+      const { data: sourceItems, error: fetchSourceErr } = await supabase
+        .from('audit_items')
+        .select('id, audit_id, count, proof_photo_url')
+        .eq('brand_id', sourceBrand.id);
+
+      if (fetchSourceErr) {
+        alert('Error fetching source brand audit items: ' + fetchSourceErr.message);
+        return;
+      }
+
+      // 2. Get all audit_items for the target brand (to detect overlaps)
+      const { data: targetItems, error: fetchTargetErr } = await supabase
+        .from('audit_items')
+        .select('id, audit_id, count, proof_photo_url')
+        .eq('brand_id', targetBrand.id);
+
+      if (fetchTargetErr) {
+        alert('Error fetching target brand audit items: ' + fetchTargetErr.message);
+        return;
+      }
+
+      const targetItemsByAudit = {};
+      (targetItems || []).forEach(item => {
+        targetItemsByAudit[item.audit_id] = item;
+      });
+
+      // 3. For each source item, either merge counts or reassign
+      for (const sourceItem of (sourceItems || [])) {
+        const existingTarget = targetItemsByAudit[sourceItem.audit_id];
+
+        if (existingTarget) {
+          // Same audit has both brands — sum counts, keep proof photo from whichever has one
+          const mergedCount = existingTarget.count + sourceItem.count;
+          const mergedProof = existingTarget.proof_photo_url || sourceItem.proof_photo_url || null;
+
+          await supabase
+            .from('audit_items')
+            .update({ count: mergedCount, proof_photo_url: mergedProof })
+            .eq('id', existingTarget.id);
+
+          // Delete the source item (now merged)
+          await supabase
+            .from('audit_items')
+            .delete()
+            .eq('id', sourceItem.id);
+        } else {
+          // No overlap — just reassign brand_id
+          await supabase
+            .from('audit_items')
+            .update({ brand_id: targetBrand.id })
+            .eq('id', sourceItem.id);
+        }
+      }
+
+      // 4. Reassign any sub-brands that had source as parent
+      await supabase
+        .from('brands')
+        .update({ parent_id: targetBrand.id })
+        .eq('parent_id', sourceBrand.id);
+
+      // 5. Delete the source brand
+      const { error: deleteErr } = await supabase
+        .from('brands')
+        .delete()
+        .eq('id', sourceBrand.id);
+
+      if (deleteErr) {
+        alert('Error deleting source brand: ' + deleteErr.message);
+        return;
+      }
+
+      alert(`Successfully merged "${sourceBrand.name}" into "${targetBrand.name}". All audit data has been consolidated.`);
+      setMergeSourceId('');
+      setMergeTargetId('');
+      fetchData();
+    } catch (err) {
+      console.error('Merge error:', err);
+      alert('Unexpected error during merge: ' + err.message);
+    } finally {
+      setIsMerging(false);
+      setMergeConfirmDialog({ isOpen: false, sourceBrand: null, targetBrand: null });
+    }
+  };
+
   return (
     <main className="container" style={{ padding: 'var(--spacing-xl) 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
@@ -537,6 +652,73 @@ export default function AdminPage() {
             >
               {isBulkAdding ? 'Processing...' : 'Bulk Add Brands'}
             </button>
+          </div>
+
+          <div style={{ background: 'white', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-lg)', marginTop: 'var(--spacing-md)', border: '2px solid var(--color-jade)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-sm)', fontSize: '0.95rem', color: 'var(--color-forest)', fontWeight: 'bold' }}>
+              <Merge size={18} /> Merge Brands
+            </label>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-charcoal)', marginBottom: '12px' }}>
+              Merge a misspelled or duplicate brand into another. All audit data (counts &amp; proof photos) will be transferred to the target brand.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-charcoal)' }}>Source Brand (will be deleted)</label>
+                <select
+                  value={mergeSourceId}
+                  onChange={e => setMergeSourceId(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', background: 'white' }}
+                >
+                  <option value="">Select source brand...</option>
+                  {brands.map(b => (
+                    <option key={b.id} value={b.id} disabled={b.id === mergeTargetId}>
+                      {b.name}{b.parent_id ? ` (sub-brand of ${brands.find(p => p.id === b.parent_id)?.name || '?'})` : ''}{b.is_custom ? ' [Custom]' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-forest)', fontWeight: 'bold' }}>→ merge into →</div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-charcoal)' }}>Target Brand (will be kept)</label>
+                <select
+                  value={mergeTargetId}
+                  onChange={e => setMergeTargetId(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-surface)', background: 'white' }}
+                >
+                  <option value="">Select target brand...</option>
+                  {brands.map(b => (
+                    <option key={b.id} value={b.id} disabled={b.id === mergeSourceId}>
+                      {b.name}{b.parent_id ? ` (sub-brand of ${brands.find(p => p.id === b.parent_id)?.name || '?'})` : ''}{b.is_custom ? ' [Custom]' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={handleMergeBrandsClick}
+                disabled={isMerging || !mergeSourceId || !mergeTargetId}
+                style={{
+                  width: '100%',
+                  marginTop: '4px',
+                  padding: '10px',
+                  borderRadius: 'var(--border-radius-sm)',
+                  border: 'none',
+                  background: (mergeSourceId && mergeTargetId && !isMerging) ? 'var(--color-forest)' : 'var(--color-surface)',
+                  color: (mergeSourceId && mergeTargetId && !isMerging) ? 'white' : 'var(--color-charcoal)',
+                  fontWeight: 'bold',
+                  cursor: (mergeSourceId && mergeTargetId && !isMerging) ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: '0.9rem',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Merge size={16} />
+                {isMerging ? 'Merging...' : 'Merge Brands'}
+              </button>
+            </div>
           </div>
 
           <div style={{ marginTop: 'var(--spacing-lg)' }}>
@@ -1215,6 +1397,39 @@ export default function AdminPage() {
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-xl)' }}>
               <button className="secondary" style={{ flex: 1 }} onClick={() => setConfirmDialog({ isOpen: false, type: null, id: null })}>Cancel</button>
               <button className="primary" style={{ flex: 1, background: 'var(--color-vibrant-rose)' }} onClick={executeDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {mergeConfirmDialog.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(47, 62, 52, 0.8)', zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-md)'
+        }}>
+          <div style={{ background: 'white', padding: 'var(--spacing-xl)', borderRadius: 'var(--border-radius-lg)', width: '100%', maxWidth: '450px' }}>
+            <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Merge size={20} /> Confirm Brand Merge
+            </h3>
+            <div style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', background: 'var(--color-surface)', borderRadius: 'var(--border-radius-sm)', fontSize: '0.9rem' }}>
+              <div style={{ marginBottom: '8px' }}>
+                <strong style={{ color: 'var(--color-vibrant-rose)' }}>Source (will be deleted):</strong>
+                <div style={{ fontWeight: 'bold', fontSize: '1.05rem', marginTop: '2px' }}>{mergeConfirmDialog.sourceBrand?.name}</div>
+              </div>
+              <div style={{ textAlign: 'center', fontSize: '1.2rem', margin: '4px 0' }}>↓</div>
+              <div>
+                <strong style={{ color: 'var(--color-forest)' }}>Target (will be kept):</strong>
+                <div style={{ fontWeight: 'bold', fontSize: '1.05rem', marginTop: '2px' }}>{mergeConfirmDialog.targetBrand?.name}</div>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-charcoal)', marginBottom: 'var(--spacing-md)' }}>
+              All audit items, counts, and proof photos from <strong>&quot;{mergeConfirmDialog.sourceBrand?.name}&quot;</strong> will be transferred to <strong>&quot;{mergeConfirmDialog.targetBrand?.name}&quot;</strong>. Sub-brands will also be reassigned. This action <strong>cannot be undone</strong>.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+              <button className="secondary" style={{ flex: 1 }} onClick={() => setMergeConfirmDialog({ isOpen: false, sourceBrand: null, targetBrand: null })} disabled={isMerging}>Cancel</button>
+              <button className="primary" style={{ flex: 1, background: 'var(--color-forest)' }} onClick={executeMergeBrands} disabled={isMerging}>
+                {isMerging ? 'Merging...' : 'Confirm Merge'}
+              </button>
             </div>
           </div>
         </div>
