@@ -106,7 +106,7 @@ export default function AddBrandModal({ onClose }) {
   };
 
   const confirmAdd = async () => {
-    if (!proofPhotoUrl) return;
+    if (isUploading) return;
 
     if (isCustom) {
       store.addCustomBrand(selectedBrand.name, proofPhotoUrl);
@@ -191,10 +191,10 @@ export default function AddBrandModal({ onClose }) {
               <Camera size={48} />
             </div>
             
-            <h3 style={{ color: 'var(--color-deep-forest)', marginBottom: 'var(--spacing-sm)' }}>Photo Evidence Required</h3>
+            <h3 style={{ color: 'var(--color-deep-forest)', marginBottom: 'var(--spacing-sm)' }}>Photo Evidence (Optional)</h3>
             
             <p style={{ marginBottom: 'var(--spacing-lg)', fontSize: '1.05rem', color: 'var(--color-charcoal)' }}>
-              Upload or snap a photo of the <strong>{selectedBrand.name}</strong> item you found to log this tally.
+              Optionally upload or snap a photo of the <strong>{selectedBrand.name}</strong> item you found to log this tally.
             </p>
 
             {/* Photo Proof Selection/Preview Card */}
@@ -265,7 +265,7 @@ export default function AddBrandModal({ onClose }) {
                 className="primary" 
                 style={{ width: '100%' }} 
                 onClick={confirmAdd}
-                disabled={!proofPhotoUrl || isUploading}
+                disabled={isUploading}
               >
                 Add Brand to Tally
               </button>
