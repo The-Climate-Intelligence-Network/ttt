@@ -380,7 +380,7 @@ export default function AuditPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={18} style={{ color: 'var(--color-forest)', flexShrink: 0 }} />
             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-              💡: Consider adding a <strong>Before Photo</strong> of the beach!
+              💡: Consider adding a <strong>Before Photo</strong> of the location!
             </span>
           </div>
           <button 
@@ -517,7 +517,7 @@ export default function AuditPage() {
               }}>
                 <AlertCircle size={20} style={{ color: 'var(--color-vibrant-rose)', flexShrink: 0, marginTop: '2px' }} />
                 <span style={{ fontSize: '0.85rem' }}>
-                  <strong>Reminder:</strong> You haven't added an <strong>After Photo</strong> yet. We highly recommend capturing one to show the cleaned beach!
+                  <strong>Reminder:</strong> You haven't added an <strong>After Photo</strong> yet. We highly recommend capturing one to show the cleaned location!
                 </span>
               </div>
             )}
