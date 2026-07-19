@@ -49,9 +49,6 @@ export default function LandingPage() {
           
         if (!error && data) {
           setEvents(data);
-          if (data.length > 0) {
-            setSelectedEventId(data[0].id);
-          }
         }
       } catch (err) {
         console.error(err);
@@ -65,7 +62,11 @@ export default function LandingPage() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!registerName.trim() || !selectedEventId) return;
+    if (!selectedEventId) {
+      setRegisterError('Please select a clean-up event first.');
+      return;
+    }
+    if (!registerName.trim()) return;
 
     setRegisterError('');
     setRegisterSuccess('');
@@ -127,7 +128,11 @@ export default function LandingPage() {
 
   const handleStartAudit = async (e) => {
     e.preventDefault();
-    if (!auditName.trim() || !selectedEventId) return;
+    if (!selectedEventId) {
+      setAuditError('Please select a clean-up event first.');
+      return;
+    }
+    if (!auditName.trim()) return;
 
     setAuditError('');
     setIsStarting(true);
@@ -294,6 +299,7 @@ export default function LandingPage() {
                 color: 'var(--color-charcoal)'
               }}
             >
+              <option value="" disabled>-- Select Clean-up Event --</option>
               {events.map(ev => (
                 <option key={ev.id} value={ev.id}>{ev.name}</option>
               ))}
