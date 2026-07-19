@@ -243,6 +243,11 @@ export default function LandingPage() {
   return (
     <main className="mobile-container flex-center">
       <div style={{ textAlign: 'center', padding: 'var(--spacing-lg) 0', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--spacing-md)' }}>
+          <a href="https://linktr.ee/climate.intelligence" target="_blank" rel="noopener noreferrer">
+            <img src="/CINHorizontal.png" alt="CIN Logo" style={{ height: '50px', cursor: 'pointer' }} />
+          </a>
+        </div>
         <h1 style={{ color: 'var(--color-teal)', marginBottom: 'var(--spacing-xs)', fontSize: '2.5rem' }}>
           Track The Trash
         </h1>
