@@ -70,6 +70,7 @@ export const useAuditStore = create(
             id: dbb.id, // Use DB id
             name: dbb.name,
             is_custom: dbb.is_custom,
+            parent_id: dbb.parent_id || null,
             count: existing ? existing.count : 0,
             proof_photo_url: existing ? (existing.proof_photo_url || '') : ''
           };

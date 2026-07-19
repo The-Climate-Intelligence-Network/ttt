@@ -105,8 +105,35 @@ export default function AddBrandModal({ onClose }) {
     }
   };
 
+  const isPhotoRequired = () => {
+    if (!selectedBrand) return false;
+    
+    // 1. Determine the parent brand ID for the selected brand
+    let parentBrandId = null;
+    if (selectedBrand.parent_id) {
+      parentBrandId = selectedBrand.parent_id;
+    } else if (selectedBrand.id) {
+      parentBrandId = selectedBrand.id;
+    }
+
+    // 2. If it's a new custom brand (no ID yet), it needs a photo
+    if (!parentBrandId) {
+      return true;
+    }
+    
+    // 3. Check if any brand in this parent group already has a photo tallied
+    const hasPhotoInGroup = store.brands.some(b => 
+      (b.id === parentBrandId || b.parent_id === parentBrandId) && 
+      b.count > 0 && 
+      b.proof_photo_url
+    );
+    
+    return !hasPhotoInGroup;
+  };
+
   const confirmAdd = async () => {
     if (isUploading) return;
+    if (isPhotoRequired() && !proofPhotoUrl) return;
 
     if (isCustom) {
       store.addCustomBrand(selectedBrand.name, proofPhotoUrl);
@@ -191,10 +218,15 @@ export default function AddBrandModal({ onClose }) {
               <Camera size={48} />
             </div>
             
-            <h3 style={{ color: 'var(--color-deep-forest)', marginBottom: 'var(--spacing-sm)' }}>Photo Evidence (Optional)</h3>
+            <h3 style={{ color: 'var(--color-deep-forest)', marginBottom: 'var(--spacing-sm)' }}>
+              {isPhotoRequired() ? 'Photo Evidence Required' : 'Photo Evidence (Optional)'}
+            </h3>
             
             <p style={{ marginBottom: 'var(--spacing-lg)', fontSize: '1.05rem', color: 'var(--color-charcoal)' }}>
-              Optionally upload or snap a photo of the <strong>{selectedBrand.name}</strong> item you found to log this tally.
+              {isPhotoRequired() 
+                ? <>Upload or snap a photo of the <strong>{selectedBrand.name}</strong> item you found to log this tally.</>
+                : <>Optionally upload or snap a photo of the <strong>{selectedBrand.name}</strong> item you found to log this tally.</>
+              }
             </p>
 
             {/* Photo Proof Selection/Preview Card */}
@@ -265,7 +297,7 @@ export default function AddBrandModal({ onClose }) {
                 className="primary" 
                 style={{ width: '100%' }} 
                 onClick={confirmAdd}
-                disabled={isUploading}
+                disabled={isUploading || (isPhotoRequired() && !proofPhotoUrl)}
               >
                 Add Brand to Tally
               </button>

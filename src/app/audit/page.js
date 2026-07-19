@@ -52,7 +52,7 @@ export default function AuditPage() {
       try {
         const { data, error } = await supabase
           .from('brands')
-          .select('id, name, is_custom')
+          .select('id, name, is_custom, parent_id')
           .order('name');
         if (!error && data) {
           store.setDbBrands(data);
